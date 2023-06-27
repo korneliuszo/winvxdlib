@@ -1,0 +1,11 @@
+option quiet
+system win_vxd
+file @OBJFILE@
+option map=@OUTFILE@.map
+option nocaseexact
+segment CLASS 'CODE' PRELOAD NONDISCARDABLE
+option nodefaultlibs
+option modname=@MODNAME@
+option description 'winvxdlib driver'
+export @MODNAME@_DDB.1=DDB
+name @OUTFILE@.386
