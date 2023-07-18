@@ -1,0 +1,2519 @@
+%header
+
+VXDDEVNAME      VMM
+DeviceID        0x0001
+MinWinVer       3.0
+description     Windows Virtual Machine Manager
+description
+description     This is "built in" to the kernel and is a core device of the Windows system.
+description
+description     File location (Windows 3.0/3.1): C:\WINDOWS\SYSTEM\WIN386.EXE
+description     File location (Windows 95/98/ME): C:\WINDOWS\SYSTEM\VMM32.VXD
+description
+description     Note that in both cases, the VMM does not exist as a standalone VxD device
+description     but as code "built in" to the Windows kernel. VMM32.VXD and WIN386.EXE are
+description     executables containing the kernel and a packed structure containing the
+description     VxD device drivers in a "pre-digested" form. The VxD drivers contained within
+description     do not contain the MS-DOS header, but start with the LE header. The LE header
+description     is modified slightly to change one of the fields to instead indicate resident
+description     length. This packed structure is known as 'W3' and 'W4', referring to the
+description     extended header pointed to by the MS-DOS header. The 'W3' header is merely
+description     a list of the VxDs and where they exist elsewhere in the same EXE
+description     (Windows 3.0/3.1). The 'W4' header is the same format, but with compression
+description     applied to any part of the EXE past the W4 header to compress both the list
+description     and the VxDs contained elsewhere (Windows 95/98/ME). These built-in VxDs
+description     provide both core devices as well as the "base drivers" that allow Windows
+description     to function in the absence of external VxD drivers. Such drivers can be
+description     referenced in SYSTEM.INI as "device=*vxdname" rather than "device=VXDFILE.VXD".
+description
+description     For more information on the W3 and W4 formats, see DOSLIB tools:
+description     - tool/w3list.pl (show contents of W3 header)
+description     - tool/w3extract.pl (extract devices from W3 pack)
+description     - tool/w4tow3/w4tow3.c (decompress/convert W4 to W3 format)
+description
+description     References:
+description
+description     * Windows 3.1 DDK (CD-ROM drive D) D:\386\INCLUDE\VMM.INC
+description     - "VMM.INC - Include file for Virtual Machine Manager"
+description     - "Version 1.00 - 05-May-1988 - By RAL"
+description
+description     * Windows 95 DDK (installed in C:\DDK95) C:\DDK95\INC32\VMM.INC
+description     - (C) 1993-1995 Microsoft
+description
+description     * Windows Undocumented File Formats - Working Inside 16- and 32-bit Windows
+description     - Pete Davis and Mike Wallace
+description     - R&D Books (C) 1997
+description
+description     This DOSLIB header file (C) 2016-2017 Jonathan Campbell
+
+%endheader
+
+#--------------------------------------
+%defcode
+/*
+
+  "The following structures are pointed to by EBP when VxD routines are entered,
+   both for VxD control calls and traps(I/O traps, software INT traps, etc.).
+   The first structure as DWORD values, the second WORD values and the last
+   has BYTE values." -- Windows 3.1 DDK VMM.INC
+
+ */
+#pragma pack(push,1)
+/* struct Client_Reg_Struc */
+typedef struct Client_Reg_Struc {
+    uint32_t        Client_EDI;                     /* +0x0000 Client's EDI */
+    uint32_t        Client_ESI;                     /* +0x0004 Client's ESI */
+    uint32_t        Client_EBP;                     /* +0x0008 Client's EBP */
+    uint32_t        __unnamed_12;                   /* +0x000C ESP at pushall */
+    uint32_t        Client_EBX;                     /* +0x0010 Client's EBX */
+    uint32_t        Client_EDX;                     /* +0x0014 Client's EDX */
+    uint32_t        Client_ECX;                     /* +0x0018 Client's ECX */
+    uint32_t        Client_EAX;                     /* +0x001C Client's EAX */
+    uint32_t        Client_Error;                   /* +0x0020 Dword error code */
+    uint32_t        Client_EIP;                     /* +0x0024 EIP */
+    uint16_t        Client_CS;                      /* +0x0028 CS */
+    uint16_t        __unnamed_42;                   /* +0x002A (padding) */
+    uint32_t        Client_EFlags;                  /* +0x002C EFLAGS */
+    uint32_t        Client_ESP;                     /* +0x0030 ESP */
+    uint16_t        Client_SS;                      /* +0x0034 SS */
+    uint16_t        __unnamed_54;                   /* +0x0036 (padding) */
+    uint16_t        Client_ES;                      /* +0x0038 ES */
+    uint16_t        __unnamed_58;                   /* +0x003A (padding) */
+    uint16_t        Client_DS;                      /* +0x003C DS */
+    uint16_t        __unnamed_62;                   /* +0x003E (padding) */
+    uint16_t        Client_FS;                      /* +0x0040 FS */
+    uint16_t        __unnamed_66;                   /* +0x0042 (padding) */
+    uint16_t        Client_GS;                      /* +0x0044 GS */
+    uint16_t        __unnamed_70;                   /* +0x0046 (padding) */
+    uint32_t        Client_Alt_EIP;                 /* +0x0048  */
+    uint16_t        Client_Alt_CS;                  /* +0x004C  */
+    uint16_t        __unnamed_78;                   /* +0x004E  */
+    uint32_t        Client_Alt_EFlags;              /* +0x0050  */
+    uint32_t        Client_Alt_ESP;                 /* +0x0054  */
+    uint16_t        Client_Alt_SS;                  /* +0x0058  */
+    uint16_t        __unnamed_90;                   /* +0x005A  */
+    uint16_t        Client_Alt_ES;                  /* +0x005C  */
+    uint16_t        __unnamed_94;                   /* +0x005E  */
+    uint16_t        Client_Alt_DS;                  /* +0x0060  */
+    uint16_t        __unnamed_98;                   /* +0x0062  */
+    uint16_t        Client_Alt_FS;                  /* +0x0064  */
+    uint16_t        __unnamed_102;                  /* +0x0066  */
+    uint16_t        Client_Alt_GS;                  /* +0x0068  */
+    uint16_t        __unnamed_106;                  /* +0x006A  */
+} Client_Reg_Struc;
+/* end Client_Reg_Struc (total 0x006C bytes) */
+
+/* struct Client_Word_Reg_Struc */
+typedef struct Client_Word_Reg_Struc {
+    uint16_t        Client_DI;                      /* +0x0000 Client's DI */
+    uint16_t        __unnamed_2;                    /* +0x0002 (padding) */
+    uint16_t        Client_SI;                      /* +0x0004 Client's SI */
+    uint16_t        __unnamed_6;                    /* +0x0006 (padding) */
+    uint16_t        Client_BP;                      /* +0x0008 Client's BP */
+    uint16_t        __unnamed_10;                   /* +0x000A (padding) */
+    uint32_t        __unnamed_12;                   /* +0x000C ESP at pushall */
+    uint16_t        Client_BX;                      /* +0x0010 Client's BX */
+    uint16_t        __unnamed_18;                   /* +0x0012 (padding) */
+    uint16_t        Client_DX;                      /* +0x0014 Client's DX */
+    uint16_t        __unnamed_22;                   /* +0x0016 (padding) */
+    uint16_t        Client_CX;                      /* +0x0018 Client's CX */
+    uint16_t        __unnamed_26;                   /* +0x001A (padding) */
+    uint16_t        Client_AX;                      /* +0x001C Client's AX */
+    uint16_t        __unnamed_30;                   /* +0x001E (padding) */
+    uint32_t        __unnamed_32;                   /* +0x0020 Dword error code */
+    uint16_t        Client_IP;                      /* +0x0024 Client's IP */
+    uint16_t        __unnamed_38;                   /* +0x0026 (padding) */
+    uint32_t        __unnamed_40;                   /* +0x0028 CS */
+    uint16_t        Client_Flags;                   /* +0x002C Client's flags (low) */
+    uint16_t        __unnamed_46;                   /* +0x002E (padding) */
+    uint16_t        Client_SP;                      /* +0x0030 SP */
+    uint16_t        __unnamed_50;                   /* +0x0032  */
+    uint32_t        __unnamed_52[5];                /* +0x0034  */
+    uint16_t        Client_Alt_IP;                  /* +0x0048  */
+    uint16_t        __unnamed_74;                   /* +0x004A  */
+    uint32_t        __unnamed_76;                   /* +0x004C  */
+    uint16_t        Client_Alt_Flags;               /* +0x0050  */
+    uint16_t        __unnamed_82;                   /* +0x0052  */
+    uint16_t        Client_Alt_SP;                  /* +0x0054  */
+} Client_Word_Reg_Struc;
+/* end Client_Word_Reg_Struc (total 0x0056 bytes) */
+
+/* struct Client_Byte_Reg_Struc */
+typedef struct Client_Byte_Reg_Struc {
+    uint32_t        __unnamed_0[4];                 /* +0x0000 EDI, ESI, EBP, ESP at pushall */
+    uint8_t         Client_BL;                      /* +0x0010 Client's BL */
+    uint8_t         Client_BH;                      /* +0x0011 Client's BH */
+    uint16_t        __unnamed_18;                   /* +0x0012 (padding) */
+    uint8_t         Client_DL;                      /* +0x0014 Client's DL */
+    uint8_t         Client_DH;                      /* +0x0015 Client's DH */
+    uint16_t        __unnamed_22;                   /* +0x0016 (padding) */
+    uint8_t         Client_CL;                      /* +0x0018 Client's CL */
+    uint8_t         Client_CH;                      /* +0x0019 Client's CH */
+    uint16_t        __unnamed_26;                   /* +0x001A (padding) */
+    uint8_t         Client_AL;                      /* +0x001C Client's AL */
+    uint8_t         Client_AH;                      /* +0x001D Client's AH */
+} Client_Byte_Reg_Struc;
+/* end Client_Byte_Reg_Struc (total 0x001E bytes) */
+#pragma pack(pop)
+%enddef
+
+#--------------------------------------
+%defconstbitfield
+description     Scheduler boost values (*_Boost)
+description
+description     Source: Windows 3.1 DDK, D:\386\INCLUDE\VMM.INC, line 1524 SCHEDULER BOOST VALUES binary EQUates
+
+#                                               default=1   default=(1<<width)-1
+#       constant                    bit number  bit width   value   comment
+def     Reserved_Low_Boost          0                             ; Reserved for use by the system
+def     Cur_Run_VM_Boost            2                             ; Used by time-slice scheduler to force a VM to run for it's allotted time-slice
+def     Low_Pri_Device_Boost        4                             ; For events that need timely processing, but are not time critical
+def     High_Pri_Device_Boost       12                            ; For events that need timely processing, but should not circumvent operations that have a critical section boost
+def     Critical_Section_Boost      20                            ; Used by the system for virtual machines specified in a call to Begin_Critical_Section
+def     Time_Critical_Boost         22                            ; For events that MUST be processed even with another VM is in a critical section (example: VPICD when simulating hardware interrupts)
+def     Reserved_High_Boost         30                            ; Reserved for use by the system
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Get_VMM_Version
+description     Return VMM version
+
+# no inputs
+
+out             AX      version                                 ; AH=Major AL=Minor (example: 0x030A = 3.10)
+out             ECX     Debug                                   ; debug development revision number
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Get_Cur_VM_Handle
+description     Return current VM handle
+async           yes
+
+# no inputs
+
+out             EBX=vxd_vm_handle_t     .                       ; Handle of the current VM
+
+return          Current VM handle
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Test_Cur_VM_Handle
+description     Test whether VM handle is current VM
+async           yes
+
+in              EBX=vxd_vm_handle_t     VM                      ; VM handle to test
+
+out             ZF                      .                       ; ZF set if vm handle matches
+
+return          Boolean value. True if VM handle matches, false if not.
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Get_Sys_VM_Handle
+description     Return system VM handle
+async           yes
+
+# no inputs
+
+out             EBX=vxd_vm_handle_t     .                       ; Handle of the system VM
+
+return          System VM handle
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Test_Sys_VM_Handle
+description     Test whether VM handle is system VM
+async           yes
+
+in              EBX=vxd_vm_handle_t     VM                      ; VM handle to test
+
+out             ZF                      .                       ; ZF set if vm handle matches
+
+return          Boolean value. True if VM handle matches the one given, false if not.
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Validate_VM_Handle
+description     Verify that the VM handle is valid
+async           yes
+
+in              EBX=vxd_vm_handle_t     VM                      ; VM handle to test
+
+out             !CF                     .                       ; CF is set if NOT valid, clear if valid. Return value should invert sense.
+
+return          Boolean value. True if VM handle is valid, false if invalid.
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Get_VMM_Reenter_Count
+description     Return the number of times the VMM has been reentered. If nonzero, use only asynchronous calls.
+
+# no inputs
+
+out             ECX     .                                       ; number of times VMM has been reentered
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Begin_Reentrant_Execution
+description     Start reentrant execution. You can use this when hooking VMM faults (reentrant processor faults)
+description     in order to call non-asynchronous VMM or virtual device services or execute a virtual machine.
+description     Do not use this service to avoid scheduling events on hardware interrupts.
+
+# no inputs
+
+out             ECX     .                                       ; old reentrancy count
+
+return          unsigned int containing old reentrancy count, which must be saved and given to End_Reentrancy_Execution later on.
+%enddef
+
+#--------------------------------------
+%defcall
+byname          End_Reentrant_Execution
+description     Ends reentrant execution, after Begin_Reentrant_Execution.
+
+in              ECX     Count                                   ; reentrancy count returned by Begin_Reentrant_Execution
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Install_V86_Break_Point
+description     Insert a break point in virtual 8086 memory of the current virtual machine, and
+description     insert a breakpoint callback procedure to receive control when the break point happens.
+
+in              EAX=const+void*         BreakAddr               ; V86 address to place the break point
+in              EDX=const+void*         RefData                 ; pointer to reference data to be passed to callback procedure
+in              ESI=const+void*         Callback                ; pointer to callback procedure to install (32-bit offset)
+
+out             !CF                     .                       ; success (CF clear) or failure (CF set)
+
+return          Bool, true if success, false if failure (not installed)
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Remove_V86_Break_Point
+description     Remove a virtual 8086 break point installed with Install_V86_Break_Point in the current VM
+
+in              EAX=const+void*         BreakAddr               ; V86 address to remove break point from
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Allocate_V86_Call_Back
+description     Install a callback procedure for virtual 8086 mode applications can call to execute code in
+description     a virtual device.
+
+in              EDX=const+void*         RefData                 ; points to reference data to pass to callback procedure
+in              ESI=const+void*         Callback                ; points to callback procedure to call
+
+out             CF                      error                   ; if success, CF=0 and EAX=realmode ptr. if failure, CF=1
+out             EAX                     CallbackAddr            ; if CF=0, segment:offset of real-mode callback address
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Allocate_PM_Call_Back
+description     Install a callback procedure for protected mode applications to call to execute code in a virtual device.
+
+in              EDX=const+void*         RefData                 ; points to reference data to pass to callback procedure
+in              ESI=const+void*         Callback                ; points to callback procedure to call
+
+out             CF                      error                   ; if success, CF=0 and EAX=realmode ptr. if failure, CF=1
+out             EAX                     CallbackAddr            ; if CF=0, address of callback procedure
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Call_When_VM_Returns
+description     Install a callback procedure to receive control when a virtual machine executes the IRET instruction for
+description     the current interrupt.
+description
+description     if TimeOut is positive, callback is called if VM does not execute IRET within the timeout period.
+description     if TimeOut is negative, callabck is called when timeout occurs and again when IRET is executed by the VM.
+description     if TimeOut is zero, timeout is ignored.
+
+in              EAX=int32_t             TimeOut                 ; number of milliseconds for timeout. see description for details.
+in              EDX=const+void*         RefData                 ; pointer to reference data to pass to callback
+in              ESI=const+void*         Callback                ; callback procedure (32-bit flat)
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Schedule_Global_Event
+description     Schedule a global event, which does not require a specific virtual machine to process it.
+description     The system does not switch tasks before calling the procedure.
+description
+description     The callback can carry out any actions and use any VMM services. It is called like this:
+description
+description     mov ebx,VM ; current VM handle
+description     mov edx,RefData ; reference data pointer
+description     mov ebp,crs ; pointer to a Client_Reg_Struc
+description     call [EventCallback]
+description
+description     You can cancel a scheduled event using Cancel_Global_Event
+async           yes
+
+in              ESI=const+void*                     EventCallback           ; pointer to callback procedure (32-bit flat)
+in              EDX=const+void*                     RefData                 ; pointer to reference data to pass to callback
+
+out             ESI=vxd_global_event_handle_t       .                       ; event handle
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Schedule_VM_Event
+description     Schedule an event for the specified virtual machine. The system will carry out a task switch
+description     to the virtual machine before calling the event callback procedure.
+description
+description     You can cancel a scheduled event using Cancel_VM_Event
+async           yes
+
+in              EBX=vxd_vm_handle_t                 VM                      ; VM handle to schedule event
+in              ESI=const+void*                     EventCallback           ; pointer to callback procedure (32-bit flat)
+in              EDX=const+void*                     RefData                 ; pointer to reference data to pass to callback
+
+out             ESI=vxd_vm_event_handle_t           .                       ; event handle
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Call_Global_Event
+description     Call the event callback procedure immediately, or schedule a global event if the virtual device
+description     is processing a hardware interrupt that interrupted the VMM.
+description
+description     You can cancel the event (if scheduled) using Cancel_Global_Event.
+async           yes
+
+in              ESI=const+void*                     EventCallback           ; pointer to callback procedure (32-bit flat)
+in              EDX=const+void*                     RefData                 ; pointer to reference data to pass to callback
+
+out             ESI=vxd_global_event_handle_t       .                       ; event handle, or 0 if procedure was called immediately without scheduling.
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Call_VM_Event
+description     Call the event callback procedure immediately, or schedule a VM event if the virtual device
+description     is processing a hardware interrupt that interrupted the VMM.
+description
+description     You can cancel the event (if scheduled) using Cancel_VM_Event.
+async           yes
+
+in              EBX=vxd_vm_handle_t                 VM                      ; VM handle
+in              ESI=const+void*                     EventCallback           ; pointer to callback procedure (32-bit flat)
+in              EDX=const+void*                     RefData                 ; pointer to reference data to pass to callback
+
+out             ESI=vxd_vm_event_handle_t           .                       ; event handle, or 0 if procedure was called immediately without scheduling.
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Cancel_Global_Event
+description     Cancel a global event previously scheduled by Schedule_Global_Event or Call_Global_Event
+description     A virtual device must not attempt to cancel an event where the callback function has already been called.
+
+in              ESI=vxd_global_event_handle_t       Event                   ; Event handle, or 0 if no event should be cancelled.
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Cancel_VM_Event
+description     Cancel a VM event previously scheduled by Schedule_VM_Event or Call_VM_Event
+description     A virtual device must not attempt to cancel an event where the callback function has already been called.
+
+in              EBX                                 VM                      ; VM handle
+in              ESI=vxd_vm_event_handle_t           Event                   ; Event handle, or 0 if no event should be cancelled.
+%enddef
+
+#--------------------------------------
+%defconstbitfield
+description     Flags for Call_Priority_VM_Event (PEF_*)
+description
+description     Source: Windows 3.1 DDK, D:\386\INCLUDE\VMM.INC, line 1537 FLAGS FOR CALL_PRIORITY_VM_EVENT EQUates
+
+bitdefsuffix    _Bit
+
+#                                               default=1   default=(1<<width)-1
+#       constant                    bit number  bit width   value   comment
+def     PEF_Wait_For_STI            0                             ; Callback procedure is not called until VM enables interrupts
+def     PEF_Wait_Not_Crit           1                             ; Callback procedure is not called until VM is not in a critical section or time-critical operation
+def     PEF_Dont_Unboost            2                             ; Priority of the VM is not reduced after return from callback
+def     PEF_Always_Sched            3                             ; Event is always scheduled, callback is never called immediately
+def     PEF_Time_Out                4                             ; Use timeout value in EDI (Windows 3.1 or higher)
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Call_Priority_VM_Event
+description     Calls the callback procedure immediately, or schedules a priority event for the specified virtual machine.
+description     Scheduling is done if the virtual device is processing a hardware interrupt that interrupted the VMM,
+description     or the current virtual machine is not the specified VM, or if the Flags parameter specifies the
+description     PEF_Always_Sched value.
+description
+description     PriorityBoost must be a value limited such that when added to the VM's current execution priority the result
+description     is within range of Reserved_Low_Boost to Reserved_High_Boost.
+
+in              EAX=int32_t                         PriorityBoost           ; positive, 0, or negative priority boost for the VM.
+in              EBX=vxd_vm_handle_t                 VM                      ; VM handle
+in              ECX                                 Flags                   ; how to carry out the event. See PEF_* constants, ORed together.
+in              EDX=const+void*                     RefData                 ; pointer to reference data for callback
+in              ESI=const+void*                     EventCallback           ; pointer to callback
+in              EDI                                 TimeOut                 ; timeout in milliseconds IFF PEF_Time_Out is specified.
+
+out             ESI=vxd_priority_vm_event_handle_t  .                       ; event handle, or 0 if procedure was called immediately.
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Cancel_Priority_VM_Event
+description     Cancels an event previously schedule by Call_Priority_VM_Event.
+description     A virtual device must not attempt to cancel an event where the callback function has already been called.
+description     Any priority boost will be cancelled even if PEF_Dont_Unboost_Bit was specified when the event was created.
+description     Do NOT use this call to cancel events scheduled using the Call_VM_Event or Schedule_VM_Event services, for
+description     those types of events you must use Cancel_VM_Event.
+
+in              ESI=vxd_priority_vm_event_handle_t  Event                   ; event handle, or 0 if nothing to cancel
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Get_NMI_Handler_Addr
+description     Return the address of the current Non-Maskable Interrupt handler
+
+out             ESI=const+void*         .                       ; pointer to current NMI handler
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Set_NMI_Handler_Addr
+description     Set the Non-Maskable Interrupt vector to point to the specified handler.
+description     The NMI handler is forbidden to call any virtual device or VMM services and
+description     it must restrict itself to access only local data in the VxD_LOCKED_DATA_SEG segment.
+description     A virtual device that needs to use VMM services from NMI should instead use Hook_NMI_Event.
+description
+description     The handler must NOT execute the IRET instruction. It must jump to the previous NMI handler
+description     that it retrieved from Get_NMI_Handler_Addr. x86 architecture design dictates that the CPU
+description     ignores additional NMIs until it executes the IRET instruction.
+
+in              ESI=const+void*         nmi                     ; pointer to NMI handler
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Hook_NMI_Event
+description     Install a Non-Maskable Interrupt event procedure. Event procedures are called in install
+description     order after the last handler in the NMI handler chain has been executed. Event procedures
+description     are allowed to make VMM calls that are not permitted in NMI handlers.
+description
+description     NMI event procedures can be interrupted by another NMI, reentrancy is possible.
+
+in              ESI=const+void*         NmiProc                 ; pointer to NMI event handler
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Call_When_VM_Ints_Enabled
+description     Install a callback procedure that the system calls whenever the virtual machine enables interrupts.
+description     The callback is called immediately if interrupts are already enabled. Virtual devices use this to
+description     receive notification when the virtual machine enables interrupts.
+description
+description     It is usually more convenient to use Call_Priority_VM_Event, but this call is faster.
+
+in              EDX=const+void*         RefData                 ; pointer to reference data to pass to callback
+in              ESI=const+void*         Callback                ; pointer to callback function
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Enable_VM_Ints
+description     Enable interrupts for the current virtual machine. It has the same effect as if the VM had executed the STI instruction.
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Disable_VM_Ints
+description     Disable interrupts for the current virtual machine. It has the same effect as if the VM had executed the CLI instruction.
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Map_Flat
+description     Convert a segment:offset or selector:offset pair to a linear address only for the current virtual machine.
+description     The segment is converted as a V86 segment, or protected mode selector, depending on the execution state of the virtual machine.
+description     If the virtual machine is running 32-bit protected mode code, then the full 32 bits of the register are used.
+description     For 16-bit protected mode and V86 code, only the lower 16 bits are used.
+description
+description     The parameter in this function is the full 16-bit contents of register AX, which contains the two 8-bit values stored in AH and AL.
+description     AH is SegOffset, the byte offset from the start of the Client_Reg_Struc structure to the segment/selector register to convert.
+description     AL is OffOffset, the byte offset from the start of the Client_Reg_Struc structure to the register with the offset to convert.
+description     If AL is -1 (0xFF), then 0 is used as the offset of the address to convert (NOT the offset into the Client_Reg_Struc)
+description
+description     To form the parameter correctly for this function:
+description
+description     Map_Flat((SegOffset << 8) + OffOffset);
+description
+description     The linear address returned is the ring-0 linear address that corresponds to the segment:offset address specified.
+
+in              AX                      SegOffOffset            ; AX = [AH,AL] 16-bit value, AH=SegOffset AL=OffOffset
+
+out             EAX                     .                       ; linear address, or -1 (0xFFFFFFFF) if invalid
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Map_Lin_To_VM_Addr
+description     Convert a 32-bit ring-0 linear address to a V86 or protected mode address appropriate
+description     for the current execution mode of the current virtual machine.
+description
+description     If the execution state of the virtual machine is V86 mode, then the returned pair is a segment:offset value.
+description     This call will fail in V86 mode if the linear address is outside the 1MB limit of the
+description     current virtual machine's 1MB virtual 8086 mode address space.
+description
+description     If the execution state of the virtual machine is protected mode, then the
+description     returned pair is a selector:offset value produced by creating a new entry in the
+description     virtual machine's LDT (Local Descriptor Table).
+description
+description     A device must never free a selector returned by this service. There is no function to free the mapping. Use this function sparingly.
+
+in              EAX=const+void*         LineAddr                ; Linear address to convert
+in              ECX                     Limit                   ; segment limit in bytes - 1 (a value of 0 means 1 byte long)
+
+out             CF                      error                   ; CF set if error, clear if success
+out             CX                      SegSel                  ; segment/selector if success
+out             EDX                     Offset                  ; address offset
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Adjust_Exec_Priority
+description     Raise or lower the execution priority of the specified virtual machine.
+
+in              EAX=int32_t             PriorityBoost           ; *_Boost constant value
+in              EBX=vxd_vm_handle_t     VM                      ; VM handle
+%enddef
+
+#--------------------------------------
+%defconstbitfield
+description     Flags for Begin_Critical_Section (Block_*)
+description
+description     Source: Windows 3.1 DDK, D:\386\INCLUDE\VMM.INC, line 1553
+
+bitdefsuffix    _Bit
+
+#                                                   default=1   default=(1<<width)-1
+#       constant                        bit number  bit width   value   comment
+def     Block_Svc_Ints                  0                             ; Service interrupts in the virtual machine even if the virtual machine is blocked
+def     Block_Svc_If_Ints_Locked        1                             ; Service interrupts in the virtual machine even if the virtual machine is blocked and the VMStat_V86IntsLocked flag is set.
+def     Block_Enable_Ints               2                             ; Service interrupts in the virtual machine even if the virtual machine does not currently have interrupts enabled. Force interrupts to be enabled. Only relevant if (Svc_Ints | Svc_If_Ints_Locked) is set
+def     Block_Poll                      3                             ; Do not switch away from the blocked virtual machine unless another machine has higher priority.
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Begin_Critical_Section
+description     Cause the current virtual machine to enter a critical section.
+description     Only one virtual machine can own the critical section at a time.
+description     This call will block until the critical section is available.
+description     The system maintains a count of critical section claim calls.
+description     The critical section is only released when the count is reduced to zero by End_Critical_Section.
+description     Claiming the critical section boosts the priority of the current VM by Critical_Section_Boost.
+description     While in a critical section, the system will task switch only if the virtual machine blocks
+description     on a semaphore or the other task has a time-critical operation.
+
+in              ECX                     Flags                   ; flags for service. See Block_* constants.
+%enddef
+
+#--------------------------------------
+%defcall
+byname          End_Critical_Section
+description     Release the critical section if claim count is reduced to zero.
+description     Calling this function decrements the claim count, and releases the critical section if the result is zero.
+description     Releasing the critical section also lowers the execution priority of the current virtual machine,
+description     and may cause a task switch if a higher-priority non-suspended virtual machine is waiting.
+%enddef
+
+#--------------------------------------
+%defcall
+byname          End_Crit_And_Suspend
+description     Release the critical section and immediately suspend the current virtual machine.
+description     If the claim count is not 1 (and therefore the call will not release the section), the function will fail
+description     and not change the claim count and return an error. If the system cannot suspend the virtual machine,
+description     then it will return an error.
+
+out             !CF                     .                       ; CF set if error (not released), CF clear if success
+
+return          Bool true if success, false if error
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Claim_Critical_Section
+description     Increment the critical section claim count by the specified amount (as if calling Begin_Critical_Section by that many times)
+
+in              EAX                     Claims                  ; how much to increment. zero is valid, but ignored
+in              ECX                     Flags                   ; Block_* constants
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Release_Critical_Section
+description     Decrement the critical section claim count by the specified amount (as if calling End_Critical_Section by that many times)
+
+in              ECX                     Claims                  ; how much to decrement. zero is valid, but ignored
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Call_When_Not_Critical
+description     Install a critical section callback to be called when a virtual device releases the critical section.
+description     The callback is not executed until the current VM's execution priority is less than Critical_Section_Boost
+description     even if the current virtual machine is not in a critical section, so that virtual devices can release
+description     a critical section and process any simulated interrupts before the system calls the callback procedure.
+description     Any number of callbacks can be installed, but the system will only call the most recent callback, and then
+description     remove it from the list.
+
+in              ESI=const+void*         CritSecCallback         ; pointer to callback procedure
+in              EDX=const+void*         RefData                 ; pointer to reference data to pass to callback
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Create_Semaphore
+description     Allocate and initialize a new semaphore.
+
+in              ECX                             TokenCount              ; initial token count
+
+out             EAX=vxd_semaphore_handle_t      Semaphore               ; semaphore handle if CF=0
+out             CF                              error                   ; CF set if error, CF clear if success
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Destroy_Semaphore
+description     Destroy the specified semaphore.
+
+in              EAX=vxd_semaphore_handle_t      Semaphore               ; semaphore handle to delete
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Wait_Semaphore
+description     Block the current virtual machine (wait) until the semaphore is signaled using Signal_Semaphore service.
+
+in              EAX=vxd_semaphore_handle_t      Semaphore               ; semaphore handle to wait on
+in              ECX                             Flags                   ; Block_* constants
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Signal_Semaphore
+description     Unblocks the virtual machine (if any) waiting on the semaphore.
+
+in              EAX=vxd_semaphore_handle_t      Semaphore               ; semaphore handle
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Get_Crit_Section_Status
+description     Returns the claim count and owner of the critical section.
+description     If the claim count is zero, it returns VM == Current VM and Claims == 0.
+async           no
+
+out             EBX=vxd_vm_handle_t     VM                      ; VM handle of owner
+out             ECX                     Claims                  ; number of times claimed
+out             CF                      high_priority           ; CF set if priority is Critical_Section_Boost or higher
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Call_When_Task_Switched
+description     Install a task-switched callback procedure that is called whenever the system carries out a task switch.
+description     Use this service sparingly and optimize the callback procedure for speed.
+description     For use by virtual devices that must save the state of a hardware device every time a task switch occurs.
+description     Virtual devices can install any number of callback procedures. The system calls each one in the order
+description     installed until all have been called.
+
+in              ESI=const+void*         TaskSwitchCallback      ; pointer to callback
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Suspend_VM
+description     Suspend the execution of a specific virtual machine.
+description     An error occurs if the virtual machine is in a critical section or the VM specified is the system virtual machine.
+description     This call increments the suspend count of the virtual machine. If the suspend count was zero, then
+description     the virtual machine is suspended and virtual devices are notified of the suspension. Otherwise,
+description     Suspend_VM only increments the value with no other effects.
+description
+description     Suspending the VM sets the CB_VM_Status field of the virtual machine's control block.
+
+in              EBX=vxd_vm_handle_t     VM                      ; VM handle
+out             !CF                     .                       ; CF set if not suspended (failure), clear if success
+
+return          Bool true if suspended, false if failure
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Resume_VM
+description     Resume execution of a virtual machine suspended by Suspend_VM.
+description     This call decrements the suspend count of the virtual machine. If the suspend count becomes zero,
+description     then the virtual machine is placed into the ready-process queue. The system will task switch to
+description     the resumed VM if the virtual machine has a higher priority than the current virtual machine.
+description
+description     The system notifies every virtual device of the request to resume. Any virtual device can deny
+description     the request, which causes this service to return with CF set and the suspend count left at 1.
+description
+description     TODO: What does this return if the suspend count is greater than 1 and no other error occurs??
+
+in              EBX=vxd_vm_handle_t     VM                      ; VM handle
+out             !CF                     .                       ; CF set if error, clear if success
+
+return          Bool true if success, false if error
+%enddef
+
+#--------------------------------------
+%defcall
+byname          No_Fail_Resume_VM
+description     Resume execution of a virtual machine suspended by Suspend_VM.
+description     If the virtual machine cannot be resumed for any reason, the system will notify the user and handle
+description     the error automatically, resuming the virtual machine when there is sufficient memory available.
+
+in              EBX=vxd_vm_handle_t     VM                      ; VM handle
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Nuke_VM
+description     Close a virtual machine that has not yet terminated.
+description     This call will never return if the VM handle is the current VM or system VM.
+description     If the VM handle specified is the system VM, the service will close Windows and return to MS-DOS.
+description
+description     This is typically used by the virtual shell service to close a virtual machine when the user
+description     chooses the Terminate button from the virtual machine's Settings dialog box.
+description
+description     Use with caution.
+
+in              EBX=vxd_vm_handle_t     VM                      ; VM handle
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Crash_Cur_VM
+description     Abruptly terminate (abort) the current VM.
+description     A virtual device should call this function when a catastrophic error has occured,
+description     such as executing an illegal instruction or attempting to program the hardware
+description     in a way incompatible with the device virtualization.
+description
+description     If the system VM is the current VM, Windows will exit with a fatal error without
+description     explicitly crashing the other VMs.
+description
+description     This call does not return.
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Get_Execution_Focus
+description     Return the handle of the virtual machine that currently has the execution focus,
+description     also known as the foreground virtual machine.
+
+out             EBX=vxd_vm_handle_t     .                       ; handle of foreground VM
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Set_Execution_Focus
+description     Assign execution focus to the specified virtual machine (make it the foreground VM).
+description     The foreground VM will then execute with it's foreground priority. If the VM has
+description     exclusive execution priority then it will become the only VM to receive time slices.
+description     When a virtual machine receives the execution focus, the system suspends all other
+description     virtual machines except the system virtual machine and background virtual machines.
+description     Only the system VM can assign the execution focus to other VMs. A non-system VM
+description     can only assign the execution focus to itself.
+
+in              EBX=vxd_vm_handle_t     VM                      ; VM handle
+out             !CF                     .                       ; CF set if focus cannot be set, clear otherwise
+
+return          Bool true if focus was set, false otherwise
+%enddef
+
+#--------------------------------------
+%defconstbitfield
+description     Status flags in VM control block (VMStat_*)
+description
+description     Source: Windows 3.1 DDK, D:\386\INCLUDE\VMM.INC, line 448
+
+#                                               default=1   default=(1<<width)-1
+#       constant                    bit number  bit width   value   comment
+bitdefsuffix    _Bit
+def     VMStat_Exclusive            0                             ; VM is in exclusive mode
+def     VMStat_Background           1                             ; VM runs in background
+def     VMStat_Creating             2                             ; VM is in the process of creation
+def     VMStat_Suspended            3                             ; VM is suspended (not scheduled)
+def     VMStat_Not_Executeable      4                             ; VM is not executable (partially destroyed)
+def     VMStat_PM_Exec              5                             ; VM is running protected-mode application
+def     VMStat_PM_App               6                             ; Protected mode application is present in VM
+def     VMStat_PM_Use32             7                             ; Protected-mode application is 32-bit
+def     VMStat_VxD_Exec             8                             ; "Call from VxD"
+def     VMStat_High_Pri_Back        9                             ; High-priority background
+def     VMStat_Blocked              10                            ; VM is blocked on semaphore
+def     VMStat_Awakening            11                            ; "Woke up after blocked" (FIXME: Woke? Awakening?)
+bitdefsuffix    Bit
+def     VMStat_PageableV86          12                            ; A part of the virtual 8086 VM is pageable
+def     VMStat_V86IntsLocked        13                            ; "Rest of V86 is locked"
+bitdefsuffix    _Bit
+def     VMStat_TS_Sched             14                            ; Scheduled by time-slicer
+def     VMStat_Idle                 15                            ; VM has released time
+def     VMStat_Closing              16                            ; VM is closing (Close_VM called for VM)
+
+bitdefsuffix
+def     VMStat_Use32_Mask           7           2                 ; VMStat_PM_Use32 | VMStat_VxD_Exec
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Get_Time_Slice_Priority
+description     Return the time-slice execution flags, foreground and background priorities, and percent of CPU usage for a specific virtual machine.
+
+in              EBX=vxd_vm_handle_t     VM                      ; VM handle
+out             EAX                     Flags                   ; Status flags from the CB_VM_Status field of the VM control block (VMStat_*)
+out             ECX                     Foreground              ; foreground time-slice priority (hi WORD is always 0)
+out             EDX                     Background              ; background time-slice priority (hi WORD is always 0)
+out             ESI                     CPUTime                 ; percentage of total CPU time used (or, maximum time the VM can run?? docs are a bit confusing.)
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Set_Time_Slice_Priority
+description     Set the time-slice execution flags, foreground and background priorities for a specific virtual machine.
+
+in              EAX                     Flags                   ; status flags (VMStat_*)
+in              EBX=vxd_vm_handle_t     VM                      ; VM handle
+in              ECX                     Foreground              ; foreground time-slice priority
+in              EDX                     Background              ; background time-slice priority
+out             !CF                     .                       ; CF set if failure, clear if success
+
+return          Bool, true if success, false if failure
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Get_Time_Slice_Granularity
+description     Return the current time-slice granularity, the minimum millseconds a virtual machine runs before being rescheduled.
+
+out             EAX                     .                       ; minimum time-slice in millseconds
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Set_Time_Slice_Granularity
+description     Set the minimum time-slice granularity, the minimum milliseconds a virtual machine runs before being rescheduled.
+
+in              EAX                     Time                    ; minimum time-slice in milliseconds
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Get_Time_Slice_Info
+description     Return information about the number of virtual machines currently scheduled by the time-slicer, and number that are idle.
+async           yes
+
+out             EAX                     Scheduled               ; number of virtual machines scheduled
+out             EBX                     Current                 ; handle of currently scheduled virtual machine
+out             ECX                     Idle                    ; number of idle virtual machines
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Adjust_Execution_Time
+description     Adjust the amount of execution time a virtual machine is granted with each time slice.
+description     The effect is the same on all virtual machines regardless of their time-slot priority.
+
+in              EAX                     Time                    ; number of milliseconds
+in              EBX=vxd_vm_handle_t     VM                      ; VM handle
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Release_Time_Slice
+description     Discard remaining time in the current time-slice, and start a new time slice for the next virtual machine in the time-slice queue.
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Wake_Up_VM
+description     Restore an idle virtual machine, allowing the system to schedule the VM for subsequent time-slices.
+description     A VM is idle if it has called Release_Time_Slice or has set the VMStat_Idle flag in the CB_VM_Status field of the control block.
+
+in              EBX=vxd_vm_handle_t     VM                      ; VM handle
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Call_When_Idle
+description     Install a system-wide callback procedure to call when the kernel signals that Windows is idle and all other VMs are idle.
+
+in              ESI=const+void*         IdleCallback            ; pointer to idle callback
+
+out             !CF                     .                       ; CF set if not installed, clear if installed
+
+return          Bool, true if installed, false if not installed
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Get_Next_VM_Handle
+description     Return the handle of the next virtual machine in the VM list maintained by the system.
+description     Each VM only appears once, but no particular order is guaranteed.
+description     The list is circular, so you must check for and stop when the first value comes back around.
+
+in              EBX=vxd_vm_handle_t     VM                      ; VM handle
+
+out             EBX=vxd_vm_handle_t     .                       ; next VM handle
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Set_Global_Time_Out
+description     Schedule a time-out to occur after the specified number of milliseconds have elapsed.
+
+in              EAX                             Time                    ; number of milliseconds to time-out
+in              EDX=const+void*                 RefData                 ; pointer to reference data to pass to callback
+in              ESI=const+void*                 TimeOutCallback         ; pointer to callback procedure
+
+out             ESI=vxd_timeout_handle_t        .                       ; timeout handle
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Set_VM_Time_Out
+description     Schedule a time-out to occur after the virtual machine has run for the specified number of milliseconds have elapsed.
+
+in              EAX                             Time                    ; number of milliseconds to time-out
+in              EBX=vxd_vm_handle_t             VM                      ; VM handle
+in              EDX=const+void*                 RefData                 ; pointer to reference data to provide to callback
+in              ESI=const+void*                 TimeOutCallback         ; pointer to callback function
+
+out             ESI=vxd_timeout_handle_t        .                       ; timeout handle
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Cancel_Time_Out
+description     Cancel a time-out scheduled using Set_Global_Time_Out or Set_VM_Time_Out.
+
+in              ESI=vxd_timeout_handle_t        TimeOut                 ; timeout handle
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Get_System_Time
+description     Return the time in milliseconds since Windows started.
+async           yes
+
+out             EAX                             .                       ; time in milliseconds since Windows started
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Get_VM_Exec_Time
+description     Return the time in milliseconds the VM has run (execution time since creation).
+description     A newly created VM has a time of zero.
+async           yes
+
+out             EAX                             .                       ; execution time of VM
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Hook_V86_Int_Chain
+description     Install a hook procedure the system calls when the specific interrupt happens.
+description     Virtual devices use this service to monitor software interrupts and simulated hardware interrupts in V86 mode.
+description     This call is only available during initialization.
+
+in              EAX                             Interrupt               ; Interrupt number to hook
+in              ESI=const+void*                 HookProc                ; pointer to hook procedure
+
+out             !CF                             .                       ; CF set if not installed, clear if installed
+
+return          Bool true if installed, false if not.
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Get_V86_Int_Vector
+description     Return the address of the real-mode interrupt vector in the current virtual machine.
+
+in              EAX                             Interrupt               ; Interrupt number to retrieve
+
+out             CX                              Segment                 ; segment address of interrupt routine
+out             EDX                             Offset                  ; offset of interrupt routine (high WORD is zero)
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Set_V86_Int_Vector
+description     Set the real-mode interrupt vector to the specified real-mode address.
+description
+description     This affects only the current virtual machine, unless called before Sys_VM_Init, in which case
+description     the change becomes the default interrupt table for every virtual machine.
+
+in              EAX                             Interrupt               ; Interrupt number to set
+in              CX                              Segment                 ; segment of address
+in              EDX                             Offset                  ; offset of address
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Get_PM_Int_Vector
+description     Return the address of the protected-mode interupt vector in the current virtual machine.
+description     If the code segment is 16-bit, the high WORD of the offset is zero.
+
+in              EAX                             Interrupt               ; Interrupt nummber to set
+
+out             CX                              Segment                 ; segment selector
+out             EDX                             Offset                  ; offset
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Set_PM_Int_Vector
+description     Set the protected-mode interrupt vector to the specified address.
+description
+description     This affects only the current virtual machine, unless called before Sys_VM_Init, in which case
+description     the change becomes the default interrupt table for every virtual machine.
+description     Unless changed, the default protected-mode interrupt vector is a procedure that reflects the
+description     interrupt to V86 mode.
+
+in              EAX                             Interrupt               ; Interrupt number to set
+in              CX                              Segment                 ; segment selector
+in              EDX                             Offset                  ; offset
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Simulate_Int
+description     Simulate an interrupt in the current virtual machine.
+description     First, hook procedures set by the Hook_V86_Int_Chain service are called.
+description     If no hook procedure services the interrupt, this service pushes an IRET
+description     frame using the client CS, IP, and Flags onto the stack. When execution
+description     resumes, the virtual machine carries out the simulated interrupt and
+description     executes the V86 mode interrupt routine.
+description
+description     The virtual PIC device uses this service to simulate hardware interrupts.
+description     Other virtual devices might use the Exec_Int service to do the same.
+description
+description     If the virtual machine is in protected mode, then the service will simulate
+description     a protected mode interrupt. Undesireable effects may occur if a protected
+description     mode virtual machine then attempts to reflect the interrupt to V86 mode.
+
+in              EAX                             Interrupt               ; Interrupt number
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Simulate_Iret
+description     Simulate a return from an interrupt, by popping the top three words from the stack
+description     and storing them into Client_Flags, Client_CS, and Client_IP.
+description     The words are 32-bit if the segment is 32-bit, and 16-bit if the segment is 16-bit.
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Simulate_Far_Call
+description     Simulate a far call to a procedure in the current virtual machine.
+description     Save the Client_CS and Client_IP registers to the stack, and set them to the new address.
+description     When the virtual machine resumes, it will execute the procedure.
+description     If the procedure is in a 16-bit segment, the high WORD of the offset must be zero.
+
+in              CX                              Segment                 ; segment of procedure
+in              EDX                             Offset                  ; offset of procedure
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Simulate_Far_Jmp
+description     Simulate a far jmp to a procedure in the current virtual machine.
+description     Set the Client_CS and Client_IP registers to the new address.
+description     When the virtual machine resumes, it will execute the procedure.
+description     If the procedure is in a 16-bit segment, the high WORD of the offset must be zero.
+
+in              CX                              Segment                 ; segment of procedure
+in              EDX                             Offset                  ; offset of procedure
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Simulate_Far_Ret
+description     Simulate a far return in the current virtual machine.
+description     Pop two words off the stack and restore to Client_CS and Client_IP (as if RETF).
+description     The words are 32-bit if the segment is 32-bit, else the words are 16-bit.
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Simulate_Far_Ret_N
+description     Simulate a far return in the current virtual machine.
+description     Pop two words off the stack and restore to Client_CS and Client_IP (as if RETF).
+description     The words are 32-bit if the segment is 32-bit, else the words are 16-bit.
+description     Then, the number of Bytes specifies are popped.
+
+in              EAX                             Bytes                   ; number of bytes pop from stack
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Build_Int_Stack_Frame
+description     Prepare an interrupt stack frame in the current virtual machine.
+description     Save the Client_CS, Client_IP, and Client_Flags on the stack, and then
+description     Client_CS and Client_IP to the procedure.
+
+in              CX                              Segment                 ; segment of procedure
+in              EDX                             Offset                  ; offset of procedure
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Simulate_Push
+description     Push a word onto the stack in the virtual machine.
+description     The word is 32-bit if a 32-bit stack, else a 16-bit word.
+
+in              EAX                             Value                   ; value to push
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Simulate_Pop
+description     Pop a word off the stack in the virtual machine.
+description     The word is 32-bit if a 32-bit stack, else a 16-bit word.
+
+out             EAX                             .                       ; value popped of the stack
+%enddef
+
+#--------------------------------------
+%defconstbitfield
+description     Heap allocation flags
+description
+description     Source: Windows 3.1 DDK, D:\386\INCLUDE\VMM.INC, line 626
+
+#                                               default=1   default=(1<<width)-1
+#       constant                    bit number  bit width   value   comment
+def     HeapZeroInit                0                             ; Fill the memory block with zeros
+def     HeapZeroReInit              1                             ; Fill all bytes, new and existing, with zeros
+def     HeapNoCopy                  2                             ; Do not preserve the existing byte contents. Else, the system will copy old contents to new contents.
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _HeapAllocate
+description     Allocate a block of memory from the heap.
+description     Allocated memory is aligned on doubleword (32-bit) boundaries, however the block size does not have to be a multiple of 4.
+description     The system does not provide protection against overrunning the buffer into an adjacent block of memory,
+description     that is the virtual device's job to enforce.
+description     The system does not offer any compaction of the heap. Virtual devices must not use the heap in any way that causes severe fragmentation.
+
+cdecl           nbytes, flags                                           # parameters pushed onto the stack
+
+in              __cdecl                         nbytes                  ; size in bytes to allocate. must not be zero.
+in              __cdecl                         flags                   ; allocation flags. Heap* constants.
+
+out             EAX=void*                       .                       ; address of memory block, or zero if failure
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _HeapReAllocate
+description     Reallocate or reinitialize an existing memory block.
+description     If reallocation succeeds, the old memory address is no longer valid.
+description     If reallocation fails, the old memory block is not freed and is still valid.
+description     Thus, it works much the same way as the C library function realloc().
+description
+description     hAddress MUST have been previously returned by _HeapAllocate or _HeapReAllocate.
+
+cdecl           hAddress, nbytes, flags
+
+in              __cdecl=void*                   hAddress                ; address of the memory block
+in              __cdecl                         nbytes                  ; size in bytes to allocate. must not be zero.
+in              __cdecl                         flags                   ; allocation flags. Heap* constants.
+
+out             EAX=void*                       .                       ; address of memory block, or zero if failure
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _HeapFree
+description     Free an existing memory block of heap.
+description     hAddress MUST have been previously returned by _HeapAllocate or _HeapReAllocate.
+
+cdecl           hAddress, flags
+
+in              __cdecl=void*                   hAddress                ; address of the memory block
+in              __cdecl                         flags                   ; flags. must be zero.
+
+out             EAX                             .                       ; nonzero if freed, zero if not freed
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _HeapGetSize
+description     Return the size of an existing block of heap.
+description     hAddress MUST have been previously returned by _HeapAllocate or _HeapReAllocate.
+
+cdecl           hAddress, flags
+
+in              __cdecl=void*                   hAddress                ; address of memory block
+in              __cdecl                         flags                   ; flags. must be zero.
+
+out             EAX                             .                       ; size in bytes of block, or zero if error
+%enddef
+
+#--------------------------------------
+%defconstbitfield
+description     Page operation flags (Page*)
+description
+description     Source: Windows 3.1 DDK, D:\386\INCLUDE\VMM.INC, line 665
+description
+description     PageMAPFreePhysReg + _PageAllocate restriction:
+description     Must set page type to PG_SYS. VM, AlignMask, min/max phys, and physptr must be zero.
+description     A free phsyical region cannot be reallocated or freed. These exist for the duration of
+description     the Windows session. Available only initialization, and only in Windows 3.1 or later.
+
+#                                               default=1   default=(1<<width)-1
+#       constant                    bit number  bit width   value   comment
+def     PageZeroInit                0                             ; Fill with zeros on allocate
+def     PageUseAlign                1                             ; Allocate according to alignment and physical addresse range specified. Only available during initialization. Must be used with PageFixed.
+def     PageContig                  2                             ; Allocate contiguous physical pages to create the memory block. Must be used with PageUseAlign.
+def     PageFixed                   3                             ; Lock the allocated pages in memory at a fixed linear address, prevent pages from being unlocked or moved.
+def     PageDEBUGNulFault           4                             ; ???
+def     PageZeroReInit              5                             ; TODO
+def     PageNoCopy                  6                             ; TODO
+def     PageLocked                  7                             ; Lock the allocated pages in memory. Pages can be unlocked using _PageUnlock
+def     PageLockedIfDP              8                             ; Lock the allocated pages in memory only if the virtual pageswap device uses MS-DOS or BIOS functions.
+def     PageSetV86Pageable          9                             ; TODO
+def     PageClearV86Pageable        10                            ; TODO
+def     PageSetV86IntsLocked        11                            ; TODO
+def     PageClearV86IntsLocked      12                            ; TODO
+def     PageMarkPageOut             13                            ; TODO
+def     PagePDPSetBase              14                            ; TODO
+def     PagePDPClearBase            15                            ; TODO
+def     PageDiscard                 16                            ; TODO
+def     PagePDPQueryDirty           17                            ; TODO
+def     PageMapFreePhysReg          18                            ; Allocate a free physical region that a virtual device can use to map physical pages. READ DESCRIPTION FOR DETAILS! (Windows 3.1)
+%enddef
+
+#--------------------------------------
+%defconstenum
+description     Page types for page allocation functions (PG_*)
+description
+description     Source: Windows 3.1 DDK, D:\386\INCLUDE\VMM.INC, line 2427
+
+#       constant                    value
+def     PG_VM                       0                             ; TODO
+def     PG_SYS                      1                             ; TODO
+def     PG_RESERVED1                2                             ; TODO
+def     PG_PRIVATE                  3                             ; TODO
+def     PG_RESERVED2                4                             ; TODO
+def     PG_RELOCK                   5                             ; TODO
+def     PG_INSTANCE                 6                             ; TODO
+def     PG_HOOKED                   7                             ; TODO
+def     PG_IGNORE                   0xFFFFFFFF                    ; TODO
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _PageAllocate
+description     Allocate a block of memory consisting of the specified number of pages.
+description     This service reserves linear address space, and depending on flags, may also map to physical memory and lock them.
+description     This service returns both a memory handle and linear memory address.
+description
+description     The VM handle must be zero if using PG_SYS. It is only used if the page type is PG_VM and PG_HOOKED.
+description
+description     AlignMask could be thought of as an mask against the PAGE number (not the linear address).
+description     Consider the following table of examples against (linear >> 12):
+description     - 0x00000000    4KB alignment       no constraint
+description     - 0x00000001    8KB alignment       constraint: ((linear >> 12) & 1) == 0
+description     - 0x00000003    16KB alignment      constraint: ((linear >> 12) & 3) == 0
+description     - 0x00000007    32KB alignment      constraint: ((linear >> 12) & 7) == 0
+description     and so on, for any power of 2 alignment.
+description     The documentation seems to specify (not very well) that this alignment is applied to choosing the PHYSICAL memory address
+description     of the block, not to choosing the LINEAR memory address.
+
+cdecl           nPages, pType, VM, AlignMask, minPhys, maxPhys, PhysAddr, flags
+
+in              __cdecl                         nPages                  ; number of pages to allocate. must not be zero
+in              __cdecl                         pType                   ; page type (PG_*) enumeration
+in              __cdecl=vxd_vm_handle_t         VM                      ; VM handle in which to allocate pages
+in              __cdecl                         AlignMask               ; alignment mask that defines acceptable starting page alignment
+in              __cdecl                         minPhys                 ; minimum acceptable physical page number (if PageUseAlign)
+in              __cdecl                         maxPhys                 ; maximum acceptable physical page number (if PageUseAlign)
+in              __cdecl=uint32_t*               PhysAddr                ; pointer to uint32_t to receive physical address of memory block (if PageUseAlign)
+in              __cdecl                         flags                   ; operation flags, bitfield
+
+out             EAX                             Handle                  ; memory handle, or 0 if error
+out             EDX=void*                       Address                 ; ring-0 address of memory block, or 0 if error
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _PageReAllocate
+description     Reallocate, and possibly reinitialize an existing memory block.
+description     This call can increase or decrease the number of pages in the memory block.
+description     The hMem memory handle must have been created by _PageAllocate or _PageReAllocate.
+description
+description     If successful, the old memory block is freed and invalid. If not successful,
+description     the new block is not allocated and the old memory block remains valid.
+
+cdecl           hMem, nPages, flags
+
+in              __cdecl                         hMem                    ; handle of memory to reallocate
+in              __cdecl                         nPages                  ; number of pages in the reallocated memory block. must not be zero.
+in              __cdecl                         flags                   ; operation flags (Page* constants)
+
+out             EAX                             Handle                  ; new memory handle, or 0 if error
+out             EDX=void*                       Address                 ; new ring-0 address of memory block, or 0 if error
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _PageFree
+description     Free the specified memory block.
+description     The hMem memory handle must have been created by _PageAllocate or _PageReAllocate.
+description     Virtual devices that allocate PG_VM or PG_HOOKED pages must free the pages when the
+description     virtual machine is destroyed. PG_SYS pages do not need to be freed when Windows exists.
+description     If a virtual device maps a memory block into V86 address space (_MapIntoV86) it should
+description     unmap the memory block before attempting to free it.
+
+cdecl           hMem, flags
+
+in              __cdecl                         hMem                    ; handle of memory to free
+in              __cdecl                         flags                   ; operation flags. must be zero
+
+out             EAX                             .                       ; nonzero if success, zero if failure
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _PageLock
+description     Lock one or more pages in the specified memory block
+description     This call has no effect on pages locked using the PageFixed value. Such memory is always locked.
+description     Virtual devices must not assume that the requested pages can always be locked.
+description     Each page in a memory block has a lock count. Locking the page increments the count, unlocking decrements the count.
+description     When the lock count reaches zero, the page is unlocked.
+description     Devices should not leave handles locked when not needed.
+description
+description     This call will error out if the sum of nPages and PageOff is greater than the number of pages in the memory block.
+
+cdecl           hMem, nPages, PageOff, flags
+
+in              __cdecl                         hMem                    ; handle of memory to lock
+in              __cdecl                         nPages                  ; number of pages to lock
+in              __cdecl                         PageOff                 ; offset in pages from the start of the memory block
+in              __cdecl                         flags                   ; operating flags (Page* constants)
+
+out             EAX                             .                       ; nonzero if success, zero if failure
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _PageUnLock
+description     Unlock one or more pages in the specified memory block
+description
+description     If PageMarkPageOut is specified, the pages are marked for immediate swapping if the lock count falls to zero.
+description
+description     This call will error out if the sum of nPages and PageOff is greater than the number of pages in the memory block.
+
+cdecl           hMem, nPages, PageOff, flags
+
+in              __cdecl                         hMem                    ; handle of memory to lock
+in              __cdecl                         nPages                  ; number of pages to lock
+in              __cdecl                         PageOff                 ; offset in pages from the start of the memory block
+in              __cdecl                         flags                   ; operating flags (Page* constants)
+
+out             EAX                             .                       ; nonzero if success, zero if failure
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _PageGetSizeAddr
+description     Return the size and linear ring-0 address of an existing block of memory
+
+cdecl           hMem, flags
+
+in              __cdecl                         hMem                    ; handle of memory to examine
+in              __cdecl                         flags                   ; operating flags, must be zero
+
+out             EAX                             Pages                   ; number of pages, or 0 if error
+out             EDX=void*                       Address                 ; ring-0 linear address of memory block, or 0 if error
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _PageGetAllocInfo
+description     Return the size in pages of the largest linear address block allocatable, and also as allocated as locked or fixed.
+description     There is no guarantee that a virtual machine can allocate all free pages as returned by this function.
+description     It is also possible (mentioned in the docs) that the number of free pages can be less than the number of lockable pages.
+
+cdecl           flags
+
+in              __cdecl                         flags                   ; operating flags, must be zero
+
+out             EAX                             Free                    ; count of free pages
+out             EDX                             Lockable                ; count of lockable pages
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _GetFreePageCount
+description     Return the number of pages in the free list.
+
+cdecl           flags
+
+in              __cdecl                         flags                   ; operating flags, must be zero
+
+out             EAX                             FreePages               ; number of free pages
+out             EDX                             LockablePages           ; number of lockable pages
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _GetSysPageCount
+description     Return the current number of system pages (pages allocated as PG_SYS).
+
+cdecl           flags
+
+in              __cdecl                         flags                   ; operating flags, must be zero
+
+out             EAX                             .                       ; number of pages allocated as PG_SYS
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _GetVMPgCount
+description     Return the current count of pages allocated to a specific virtual machine.
+
+cdecl           VM, flags
+
+in              __cdecl                         VM                      ; virtual machine handle
+in              __cdecl                         flags                   ; operating flags, must be zero
+
+out             EAX                             TotalPages              ; total pages allocated to the virtual machine, or 0 if error
+out             EDX                             NotMappedIn1MB          ; total pages allocated but not mapped into the 1MB V86 address space, or 0 if error
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _MapIntoV86
+description     Map one or more pages of a memory block into the V86 address space of the specified virtual machine.
+
+cdecl           hMem, VM, VMLinPgNum, nPages, PageOff, flags
+
+in              __cdecl                         hMem                    ; memory block handle (from _PageAllocate, _PageReAllocate)
+in              __cdecl=vxd_vm_handle_t         VM                      ; VM handle to map it into
+in              __cdecl                         VMLinPgNum              ; linear page number of V86 address to map to. must be in the range 0x10 through 0x10F inclusive.
+in              __cdecl                         nPages                  ; number of pages to map
+in              __cdecl                         PageOff                 ; offset in pages from start of memory block to first page to map
+in              __cdecl                         flags                   ; operation flags (Page* constants)
+
+out             EAX                             .                       ; nonzero if success, zero if failure
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _PhysIntoV86
+description     Map the specified phsyical pages into the V86 address space.
+description     Devices use this to associate physical device memory (such as video memory) with a particular virtual machine.
+
+cdecl           PhysPage, VM, VMLinPgNum, nPages, flags
+
+in              __cdecl                         PhysPage                ; Physical page number of the start of the region to map (phys addr >> 12)
+in              __cdecl=vxd_vm_handle_t         VM                      ; VM handle to map it into
+in              __cdecl                         VMLinPgNum              ; linear page number of V86 address to map to. must be in the range 0x10 through 0x10F inclusive.
+in              __cdecl                         nPages                  ; number of pages to map
+in              __cdecl                         flags                   ; operation flags (Page* constants)
+
+out             EAX                             .                       ; nonzero if success, zero if failure
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _TestGlobalV86Mem
+description     Test whether a virtual 8086 address range is global, local, or instanced.
+
+cdecl           VMLinAddr, nBytes, flags
+
+in              __cdecl=const+void*             VMLinAddr               ; ring-0 linear address of the first byte of V86 address range (NOT real-mode seg:offset)
+in              __cdecl                         nBytes                  ; size in bytes of the V86 address range
+in              __cdecl                         flags                   ; operation flags (Page* constants)
+
+out             EAX                             .                       ; 0=local mem/invalid V86  1=global mem  2=local and global  3=global, also includes instance data
+%enddef
+
+#--------------------------------------
+%defconstbitfield
+description     Page table entry bits (PG_*)
+description
+description     Source: Windows 3.1 DDK, D:\386\INCLUDE\VMM.INC, line 2401
+
+# constants have <name>, bit position constants have <name>Bit
+bitdefsuffix    Bit
+
+#                                               default=1   default=(1<<width)-1
+#       constant                    bit number  bit width   value   comment
+def     P_PRES                      0                             ; page present
+def     P_WRITE                     1                             ; write access bit
+def     P_USER                      2                             ; access bit for user mode
+def     P_ACC                       5                             ; page accessed bit
+def     P_DIRTY                     6                             ; page dirty bit
+%enddef
+%defcode
+#define P_AVAIL         (P_PRES+P_WRITE+P_USER) /* avail to everyone & present */
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _ModifyPageBits
+description     Modifies the page attribute bits associated with PG_HOOKED pages in the v86 address space of a virtual machine.
+description     You are only allowed to modify P_PRES, P_WRITE, and P_USER bits through bitAND and bitOR.
+description     Page attribute bits are modified as follows: attr = (attr & bitAND) | bitOR.
+
+cdecl           VM, VMLinPgNum, nPages, bitAND, bitOR, pType, flags
+
+in              __cdecl=vxd_vm_handle_t         VM                      ; VM handle
+in              __cdecl                         VMLinPgNum              ; linear page number of the first page to modify. all pages must be in the first 1MB of V86 space, at or above the first page of the VM, and at or below page 0x10F
+in              __cdecl                         nPages                  ; number of pages to modify
+in              __cdecl                         bitAND                  ; AND mask for the page attribute bits. All bits except P_PRES, P_WRITE, and P_USER must be set to 1.
+in              __cdecl                         bitOR                   ; OR mask for the page attribute bits. All bits except P_PRES, P_WRITE, and P_USER must be set to 0.
+in              __cdecl                         pType                   ; Page type
+in              __cdecl                         flags                   ; operation flags. must be zero
+
+out             EAX                             .                       ; nonzero if success, zero if failure
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _CopyPageTable
+description     Copy one or more page table entries to a buffer.
+description     Virtual devices such as the virtual DMA device use this service to analyze the mapping of linear to physical addresses.
+description     Page numbers must be in the range 0 to 0xFFFFF inclusive. Page numbers 0 to 0x10F inclusive specify the V86 address space.
+description
+description     The system copies the page table entries into the buffer given. It does not re-copy if changes are later made to the page tables,
+description     so no guarantees are made that the information will remain accurate as time advances past the copy operation.
+
+cdecl           LinPgNum, nPages, PageBuf, flags
+
+in              __cdecl                         LinPgNum                ; Number of first page to begin at, for copying page table entries
+in              __cdecl                         nPages                  ; number of pages
+in              __cdecl=uint32_t*               PageBuf                 ; buffer to place page table entries
+in              __cdecl                         flags                   ; operation flags. must be zero
+
+out             EAX                             .                       ; nonzero if success, zero if failure
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _LinMapIntoV86
+description     Map one or more pages into the virtual 8086 address space of a virtual machine.
+
+cdecl           HLinPgNum, VM, VMLinPgNum, nPages, flags
+
+in              __cdecl                         HLinPgNum               ; linear page number of the first page to map
+in              __cdecl=vxd_vm_handle_t         VM                      ; VM handle
+in              __cdecl                         VMLinPgNum              ; linear page number of an address in V86 address space, must be within 0x10 to 0x10F inclusive
+in              __cdecl                         nPages                  ; number of pages to map
+in              __cdecl                         flags                   ; operating flags. must be zero
+
+out             EAX                             mapped                  ; nonzero if success, fail if zero
+out             EDX                             v86mapaddr              ; "if success, EDX contains the V86 address to which the pages are mapped"
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _LinPageLock
+description     Lock one or more pages starting at the linear page number
+
+cdecl           HLinPgNum, nPages, flags
+
+in              __cdecl                         HLinPgNum               ; linear page number of the first page
+in              __cdecl                         nPages                  ; number of pages
+in              __cdecl                         flags                   ; operating flags. (Page*)
+
+out             EAX                             .                       ; nonzero if success, fail if zero
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _LinPageUnLock
+description     Unlock one or more pages starting at the linear page number
+
+cdecl           HLinPgNum, nPages, flags
+
+in              __cdecl                         HLinPgNum               ; linear page number of the first page
+in              __cdecl                         nPages                  ; number of pages
+in              __cdecl                         flags                   ; operating flags. (Page*)
+
+out             EAX                             .                       ; nonzero if success, fail if zero
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _SetResetV86Pageable
+description     Modify the locking and unlocking behavior associated with a range of V86 memory.
+
+cdecl           VM, VMLinPgNum, nPages, flags
+
+in              __cdecl=vxd_vm_handle_t         VM                      ; VM handle
+in              __cdecl                         VMLinPgNum              ; linear page number of the first page
+in              __cdecl                         nPages                  ; number of pages
+in              __cdecl                         flags                   ; operating flags. (Page*)
+
+out             EAX                             .                       ; nonzero if success, fail if zero
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _GetV86PageableArray
+description     Return a copy of the bit array of pages who's behavior has been modified using the _SetResetV86Pageable service.
+description     Virtual devices can use this to determine whether pages have had locking behavior modified.
+
+cdecl           VM, ArrayBuf, flags
+
+in              __cdecl=vxd_vm_handle_t         VM                      ; VM handle
+in              __cdecl=uint8_t*                ArrayBuf                ; pointer to buffer to receive 0x100-bit (32-byte) array
+in              __cdecl                         flags                   ; operating flags. (Page*)
+
+out             EAX                             .                       ; nonzero if success, fail if zero
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _PageCheckLinRange
+description     Determine whether all bytes in a specific range of linear addresses are valid.
+description     Virtual devices use this call to validate an address range before specifying the range to LinPageLock and LinMapIntoV86 service.
+
+cdecl           HLinPgNum, nPages, flags
+
+in              __cdecl                         HLinPgNum               ; linear page number of the first page
+in              __cdecl                         nPages                  ; number of pages
+in              __cdecl                         flags                   ; operating flags, must be zero
+
+out             EAX                             .                       ; number of actual pages that are valid. zero if none are valid
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _PageOutDirtyPages
+description     Flush dirty pages. Used by the virtual pageswap service to prevent too many dirty pages from accumulating.
+
+cdecl           nPages, flags
+
+in              __cdecl                         nPages                  ; number of pages
+in              __cdecl                         flags                   ; operating flags (Page*)
+
+out             EAX                             .                       ; count of dirty pages
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _PageDiscardPages
+description     Mark pages as no longer in use, allowing the system to discard the pages.
+description     Accessing the page after this call does not cause the system to read the contents of the page from swap.
+
+cdecl           LinPgNum, VM, nPages, flags
+
+in              __cdecl                         LinPgNum                ; linear page number of the first page
+in              __cdecl=vxd_vm_handle_t         VM                      ; VM handle
+in              __cdecl                         nPages                  ; number of pages
+in              __cdecl                         flags                   ; operating flags (Page*)
+
+out             EAX                             .                       ; nonzero if successful, zero if failure
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _GetNulPageHandle
+description     Return the memory handle of the system nul page. This page is used to occupy regions
+description     of the address space which are unused but for which it is not desireable to cause a
+description     page fault when accessed. It can be mapped to multiple locations, the contents are
+description     always random.
+
+out             EAX                             .                       ; handle of system nul page
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _GetFirstV86Page
+description     Return page number of the first page in the current virtual machine
+
+out             EAX                             .                       ; first page of V86 memory
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _MapPhysToLinear
+description     Return the linear address of the first byte in the specified range of physical addresses
+
+cdecl           PhysAddr, nBytes, flags
+
+in              __cdecl                         PhysAddr                ; 32-bit physical address of the start of the region to examine
+in              __cdecl                         nBytes                  ; length of bytes of physical region
+in              __cdecl                         flags                   ; operation flags, must be zero
+
+out             EAX=void*                       .                       ; ring-0 linear address of first byte of physical region, or 0xFFFFFFFF if not addressable
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _GetAppFlatDSAlias
+description     Return a ring-3, read-only, GDT selector that provides access to the same memory as the system's ring-0 data segment selector.
+description     Virtual devices can use this service to support protected-mode APIs that let protected-mode applications read from the same memory.
+
+out             EAX                             .                       ; read-only GDT selector
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _SelectorMapFlat
+description     Return the base address of the specified GDT or LDT selector.
+description     Address mapper code can use this to convert segment:offset pointers to flat linear addresses.
+
+cdecl           VM, Selector, flags
+
+in              __cdecl=vxd_vm_handle_t         VM                      ; VM handle
+in              __cdecl                         Selector                ; GDT or LDT selector
+in              __cdecl                         flags                   ; operation flags, must be zero
+%enddef
+
+#--------------------------------------
+%defcode
+/*
+
+    Data structure for _GetDemandPageInfo
+
+ */
+#pragma pack(push,1)
+/* struct DemandInfoStruc */
+typedef struct DemandInfoStruc {
+    uint32_t        DILin_Total_Count;              /* +0x0000 # pages in linear address space */
+    uint32_t        DIPhys_Count;                   /* +0x0004 Count of phys pages */
+    uint32_t        DIFree_Count;                   /* +0x0008 Count of free phys pages */
+    uint32_t        DIUnlock_Count;                 /* +0x000C Count of unlocked Phys Pages */
+    uint32_t        DILinear_Base_Addr;             /* +0x0010 Base of pageable address space */
+    uint32_t        DILin_Total_Free;               /* +0x0014 Total Count of free linear pages */
+    uint32_t        DIReserved[10];                 /* +0x0018 Resvd for expansion */
+} DemandInfoStruc;
+/* end DemandInfoStruc (total 0x0040 bytes) */
+#pragma pack(pop)
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _GetDemandPageInfo
+description     Retrieve information used for demand paging, copying the information to the specified structure.
+description     For exclusive use by the virtual paging device.
+
+cdecl           DemandInfo, flags
+
+in              __cdecl=DemandInfoStruc*        DemandInfo              ; structure to fill
+in              __cdecl                         flags                   ; operation flags, must be zero
+%enddef
+
+#--------------------------------------
+%defconstbitfield
+description     Flags for _GetSetPageOutCount
+description
+description     Source: Windows 3.1 DDK, D:\386\INCLUDE\VMM.INC, line 718
+
+#                                               default=1   default=(1<<width)-1
+#       constant                    bit number  bit width   value   comment
+def     GSPOC_F_Get                 0                             ; Return the current value of the page out count, NewCount is ignored
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _GetSetPageOutCount
+description     Set or return the page out count. For exclusive use by the virtual paging device.
+
+cdecl           NewCount, flags
+
+in              __cdecl                         NewCount                ; new page out count, if GSPOC_F_Get is NOT set in flags
+in              __cdecl                         flags                   ; oprating flags, GSPOC_F_*
+
+out             EAX                             .                       ; page out count, if GSPOC_F_Get is given in flags
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Hook_V86_Page
+description     Install a callback procedure to handle faults for the specified page.
+description     Virtual devices, such as the virtual display device, use this to detect when certain address ranges are accessed.
+
+in              EAX                             PageNum                 ; page number, must be between the last v86 page and 0xFF inclusive
+in              ESI=const+void*                 Callback                ; pointer to callback procedure
+
+out             !CF                             .                       ; clear if success, set if failure
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _Assign_Device_V86_Pages
+description     Assign to a virtual device one or more pages of the V86 address space.
+
+cdecl           VMLinrPage, nPages, VM, flags
+
+in              __cdecl                         VMLinrPage              ; Linear page number of the first page of V86 address space to assign. Must be 0 to 0x10F inclusive
+in              __cdecl                         nPages                  ; number of pages to assign
+in              __cdecl=vxd_vm_handle_t         VM                      ; VM handle to assign to, or zero to apply to all virtual machines
+in              __cdecl                         flags                   ; operation flags, must be zero
+
+out             EAX                             .                       ; nonzero if successful, zero if not
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _DeAssign_Device_V86_Pages
+description     Unassign a region in the V86 address space assigned by _Assign_Device_V86_Pages
+
+cdecl           VMLinrPage, nPages, VM, flags
+
+in              __cdecl                         VMLinrPage              ; Linear page number of the first page of V86 address space to assign. Must be 0 to 0x10F inclusive
+in              __cdecl                         nPages                  ; number of pages to assign
+in              __cdecl=vxd_vm_handle_t         VM                      ; VM handle to assign to, or zero to apply to all virtual machines
+in              __cdecl                         flags                   ; operation flags, must be zero
+
+out             EAX                             .                       ; nonzero if successful, zero if not
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _Get_Device_V86_Pages_Array
+description     Retrive a copy of the assignment array used by the _Assign_Device_V86_Pages and _DeAssign_Device_V86_Pages.
+description     Virtual devices can use this to determine which regions of the V86 address space are currently assigned.
+description
+description     The meaning of each bit is whether or not the page is assigned.
+description     The global array does not indicate whether the page is assigned locally.
+description     A page is available for global assignment only if neither global nor locally assigned.
+description     A virtual device must check both global and local array to determine if a page is available for global assignment.
+
+cdecl           VM, ArrayBuf, flags
+
+in              __cdecl=vxd_vm_handle_t         VM                      ; VM handle, or 0 for global assignment array
+in              __cdecl=void*                   ArrayBuf                ; pointer to a 36-byte (0x110-bit) buffer that receives the assignment array
+in              __cdecl                         flags                   ; operation flags, must be zero
+
+out             EAX                             .                       ; nonzero if successful, zero if not
+%enddef
+
+#--------------------------------------
+%defcall
+byname          MMGR_SetNULPageAddr
+description     Set the physical address of the system nul page.
+description     For exclusive use by the virtual V86MMGR device, called during the Init_Complete message,
+description     to set the address of a known nonexistent page in the system.
+
+in              EAX                             PhysAddr                ; physical page address (page number << 12) of system nul page
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _Allocate_GDT_Selector
+description     Create a selector and add it to the Global Descriptor Table.
+
+cdecl           DescDWORD1, DescDWORD2, flags
+
+in              __cdecl                         DescDWORD1              ; High DWORD of the descriptor (high 16 bits of base addr, high 4 bits of limit, status, type)
+in              __cdecl                         DescDWORD2              ; Low DWORD of the descriptor (low 16 bits of base addr, limit)
+in              __cdecl                         flags                   ; operation flags, must be zero
+
+out             EAX                             GDTSel                  ; selector for the GDT, or zero if failure
+out             EDX                             SelCount                ; selector for GDT (low 16 bits) and size of GDT (upper 16 bits)
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _Free_GDT_Selector
+description     Free a GDT selector previously allocated using the Allocate_GDT_Selector service.
+
+cdecl           Selector, flags
+
+in              __cdecl                         Selector                ; Selector to free (allocated by Allocate_GDT_Selector)
+in              __cdecl                         flags                   ; operation flags, must be zero
+
+out             EAX                             .                       ; nonzero if success, zero if failure
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _Allocate_LDT_Selector
+description     Create a selector and add it to the Local Descriptor Table of a virtual machine.
+
+cdecl           VM, DescDWORD1, DescDWORD2, Count, flags
+
+in              __cdecl=vxd_vm_handle_t         VM                      ; VM handle
+in              __cdecl                         DescDWORD1              ; High DWORD of the descriptor (high 16 bits of base addr, high 4 bits of limit, status, type)
+in              __cdecl                         DescDWORD2              ; Low DWORD of the descriptor (low 16 bits of base addr, limit)
+in              __cdecl                         Count                   ; number of contiguous LDT selectors to allocate if flags param does not specify ALDTSpecSel
+in              __cdecl                         flags                   ; operation flags, must be zero
+
+out             EAX                             Selector                ; Selector of LDT (first one, if multiple allocated) or zero if error
+out             EDX                             SelCount                ; selector for LDT (low 16 bits) and size of LDT (upper 16 bits)
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _Free_LDT_Selector
+description     Free a LDT selector previously allocated using the Allocate_LDT_Selector service.
+
+cdecl           VM, Selector, flags
+
+in              __cdecl=vxd_vm_handle_t         VM                      ; VM handle
+in              __cdecl                         Selector                ; Selector to free
+in              __cdecl                         flags                   ; operation flags, must be zero
+
+out             EAX                             .                       ; nonzero if success, zero if failure
+%enddef
+
+#--------------------------------------
+%defconstbitfield
+description     Flags for _BuildDescriptorDWORDs
+description
+description     Source: Windows 3.1 DDK, D:\386\INCLUDE\VMM.INC, line 740
+
+#                                               default=1   default=(1<<width)-1
+#       constant                    bit number  bit width   value   comment
+def     BDDExplicitDPL              0                             ; Use DPL bits in the DESCType param
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _BuildDescriptorDWORDs
+description     Build a descriptor parameter used in calls to _Allocate_GDT_Selector and _Allocate_LDT_Selector.
+description
+description     flags:
+description     - BDDExplicitDPL: use the DPL bits in the DESCType parameter. If not specified, the call will
+description     -                 set the DPL bits to the value of the RPL bits for protected applications.
+
+cdecl           DESCBase, DESCLimit, DESCType, DESCSize, flags
+
+in              __cdecl                         DESCBase                ; 32-bit base address
+in              __cdecl                         DESCLimit               ; 20-bit limit for the descriptor
+in              __cdecl                         DESCType                ; present bit, DPL, type (only low 8 bits valid, others must be zero)
+in              __cdecl                         DESCSize                ; granularity, big/default. only bits 4-7 are valid, others must be zero
+in              __cdecl                         flags                   ; operation flags
+
+out             EAX                             desc_lo                 ; low DWORD of descriptor
+out             EDX                             desc_hi                 ; high DWORD of descriptor
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _GetDescriptor
+description     Retrieve a copy of the descriptor associated with the given LDT or GDT selector.
+
+cdecl           Selector, VM, flags
+
+in              __cdecl                         Selector                ; GDT or LDT selector
+in              __cdecl=vxd_vm_handle_t         VM                      ; virtual machine handle to which the LDT belongs, ignored if GDT
+in              __cdecl                         flags                   ; operation flags, must be zero
+
+out             EAX                             desc_lo                 ; low DWORD of descriptor
+out             EDX                             desc_hi                 ; high DWORD of descriptor
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _SetDescriptor
+description     Set the descriptor for the given LDT or GDT selector.
+
+cdecl           Selector, VM, DescDWORD1, DescDWORD2, flags
+
+in              __cdecl                         Selector                ; GDT or LDT descriptor
+in              __cdecl=vxd_vm_handle_t         VM                      ; virtual machine handle to which the LDT belongs, ignored if GDT
+in              __cdecl                         DescDWORD1              ; low DWORD of descriptor
+in              __cdecl                         DescDWORD2              ; high DWORD of descriptor
+in              __cdecl                         flags                   ; operation flags, must be zero
+
+out             EAX                             .                       ; nonzero if success, zero if failure
+%enddef
+
+#--------------------------------------
+%defconstbitfield
+description     Flags for _MMGR_Toggle_HMA
+description
+description     Source: Windows 3.1 DDK, D:\386\INCLUDE\VMM.INC, line 754
+
+#                                                           default=1   default=(1<<width)-1
+#       constant                                bit number  bit width   value   comment
+def     MMGRHMAPhysical                         0           
+def     MMGRHMAEnable                           1           
+def     MMGRHMADisable                          2           
+def     MMGRHMAQuery                            3           
+%enddef
+
+#--------------------------------------
+%defcall
+byname          _MMGR_Toggle_HMA
+description     Enable or disable the high memory area.
+description     For use by the V86MMGR XMS device to control the state of the HMA for a specified virtual machine.
+
+cdecl           VM, flags
+
+in              __cdecl=vxd_vm_handle_t         VM                      ; VM handle
+in              __cdecl                         flags                   ; operation flags (MMGRHMA*)
+
+out             EAX                             .                       ; nonzero if success, zero if failure. if MMGRHMAQuery is specified, nonzero if HMA enabled, zero if disabled.
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Get_Fault_Hook_Addrs
+description     Return addresses of the V86 mode, protected-mode, and VMM fault handlers for a specific fault
+
+in              EAX                             Interrupt               ; interrupt number
+
+out             !CF                             Success                 ; CF=0 if success, CF=1 if error
+out             EDX                             FaultHandler_V86        ; address of V86 fault handler, or zero if none installed
+out             ESI                             FaultHandler_PM         ; address of protected mode fault handler, or zero if none installed
+out             EDI                             FaultHandler_VMM        ; address of VMM fault handler, or zero if none installed
+
+return          Success==1 if success, handler addresses
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Hook_V86_Fault
+description     Install a fault handler for V86 mode.
+description     Typically a virtual device will use this during Sys_Critical_Init to handle faults (usually GPF) that the VMM's own fault handlers cannot handle.
+description     The VMM will install it's own fault handlers after the Sys_Critical_Init control message.
+description     Virtual devices will install their own after Sys_Critical_Init.
+description
+description     Do not use this service to install a fault handler for the Non-Maskable Interrupt, or for hardware interrupts.
+
+in              EAX                             Interrupt               ; interrupt number
+in              ESI=const+void*                 FaultProc               ; points to a fault handler
+
+out             !CF                             Success                 ; carry set if not installed
+out             ESI=const+void*                 Previous                ; previous fault handler, if any, or zero if none was installed
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Hook_PM_Fault
+description     Install a fault handler for protected mode.
+description     Typically a virtual device will use this during Sys_Critical_Init to handle faults (usually GPF) that the VMM's own fault handlers cannot handle.
+description     The VMM will install it's own fault handlers after the Sys_Critical_Init control message.
+description     Virtual devices will install their own after Sys_Critical_Init.
+description
+description     Do not use this service to install a fault handler for the Non-Maskable Interrupt, or for hardware interrupts.
+
+in              EAX                             Interrupt               ; interrupt number
+in              ESI=const+void*                 FaultProc               ; points to a fault handler
+
+out             !CF                             Success                 ; carry set if not installed
+out             ESI=const+void*                 Previous                ; previous fault handler, if any, or zero if none was installed
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Hook_VMM_Fault
+description     Install a fault handler for the VMM.
+description     Typically a virtual device will use this during Sys_Critical_Init to handle faults (usually GPF) that the VMM's own fault handlers cannot handle.
+description     The VMM will install it's own fault handlers after the Sys_Critical_Init control message.
+description     Virtual devices will install their own after Sys_Critical_Init.
+description
+description     Do not use this service to install a fault handler for the Non-Maskable Interrupt, or for hardware interrupts.
+
+in              EAX                             Interrupt               ; interrupt number
+in              ESI=const+void*                 FaultProc               ; points to a fault handler
+
+out             !CF                             Success                 ; carry set if not installed
+out             ESI=const+void*                 Previous                ; previous fault handler, if any, or zero if none was installed
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Begin_Nest_V86_Exec
+description     Set the current virtual machine to V86 mode and prepare the virtual machine for nested execution.
+description     Virtual machines use this service to call software in the virtual machine.
+description
+description     On return, the Client_CS and Client_IP registers point to a break point used by the nested execution services.
+description
+description     This service saves the current execution mode of the virtual machine, which End_Nest_Exec later restores.
+description
+description     This service should only be used by the virtual devices that convert protected-mode calls into V86 calls.
+description     The virtual MS-DOS manager uses this for example to map INT 21h calls from protected mode into calls in V86 mode.
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Begin_Nest_Exec
+description     Starts a nested execution block. Virtual devices use these services to call software in the virtual machine.
+description
+description     On return, the Client_CS and Client_IP registers point to a break point used by the nested execution services.
+description
+description     If the call changes the virtual machine registers, the changes are reflected in the client state.
+description     Before creating the nested execution block, a virtual device should save the client state using Save_Client_State.
+description     After ending the execution block, the virtual device should restore the client state using Restore_Client_State.
+description
+description     This service forces the virtual machine into protected mode if there is a protected mode application running in
+description     the current virtual machine, otherwise the virtual machine remains in V86 mode. End_Nest_Exec will restore the
+description     virtual machine to the mode it was running prior to Begin_Nest_Exec.
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Exec_Int
+description     Simulates the specified interrupt and resumes execution of the virtual machine.
+description     This service may only be called within a nested execution block created by Begin_Nest_Exec or Begin_Nest_V86_Exec.
+
+in              EAX                             Interrupt               ; interrupt number to execute
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Resume_Exec
+description     Immediately execute the current virtual machine.
+description     This service may only be called within a nested execution block created by Begin_Nest_Exec or Begin_Nest_V86_Exec.
+%enddef
+
+#--------------------------------------
+%defcall
+byname          End_Nest_Exec
+description     End a nested execution block.
+description
+description     On return, Client_CS and Client_IP contain the original values saved when the nested execution block was created.
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Allocate_PM_App_CB_Area
+description     Allocate space in the control block of the current virtual machine for a protected-mode application control block.
+description     This call is only available during initialization (of the VM?).
+description     This call returns the offset from the beginning of the virtual machine control block to the protected-mode application control block.
+
+in              ECX                             Size                    ; number of bytes to reserve
+
+out             EAX                             .                       ; offset of application control block
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Get_Cur_PM_App_CB
+description     Return a pointer to the application control block for a protected-mode application.
+
+in              EBX=vxd_vm_handle_t             VM                      ; handle of VM running protected mode application
+
+out             EDI=void*                       .                       ; address of application control block
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Set_V86_Exec_Mode
+description     Force the current virtual machine into V86 mode. If already in V86 mode, this call has no effect.
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Set_PM_Exec_Mode
+description     Force the current virtual machine into protected mode. If already in protected mode, this call has no effect.
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Begin_Use_Locked_PM_Stack
+description     Lock the protected mode stack, to prevent demand paging of the stack.
+description
+description     The client VM SS:SP registers are updated with the address of the locked stack, if not already locked.
+description     Otherwise, the client registers are unchanged.
+description
+description     The calling device is responsible for checking that the VM is running in protected mode, according
+description     to VMStat_PM_Exec and the CB_VM_Status field.
+description
+description     Devices are allowed to call this multiple times, only the first call has effect.
+description     Each call increments a counter. If a device locks the stack, it must eventually unlock the
+description     stack using End_Use_Locked_PM_Stack service.
+%enddef
+
+#--------------------------------------
+%defcall
+byname          End_Use_Locked_PM_Stack
+description     Unlock the protected mode stack, when locked by Begin_Use_Locked_PM_Stack.
+description
+description     This call decrements a locked stack counter, and restores the previous VM SS:SP stack pointer
+description     when the counter reaches zero.
+description
+description     If the locked stack counter does not reach zero after this call, the VM's SS:SP stack pointer is unchanged.
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Save_Client_State
+description     Copy the contents of the current VM's Client_Reg_Struc to the specified buffer.
+
+in              EDI=void*                       Buffer                  ; Buffer to receive the client state. Must be at least the size of the client reg struct
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Restore_Client_State
+description     Restore the contents of the current VM's Client_Reg_Struc from the specified buffer.
+description
+description     This will change execution mode if the restore state is different.
+description     This may change the state of the interrupt flag, causing the system to call event callbacks previously scheduled.
+
+in              ESI=const+void*                 Buffer                  ; Buffer containing the client state, saved from Save_Client_State
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Exec_VxD_Int
+description     Execute the specified software interrupt. Devices use this service to call MS-DOS or the BIOS, outside the scope of a nested execution block.
+description     The device should set CPU registers for the call, then call this service.
+description     CPU registers will be updated on return according to the call, including flags.
+description
+description     This service should not be called directly, but only from inline ASM.
+
+cdecl           Interrupt
+
+in              __cdecl                         Interrupt               ; Interrupt number to call
+
+in              EAX                             in_eax                  ; EAX input
+in              EBX                             in_ebx                  ; EBX input
+in              ECX                             in_ecx                  ; ECX input
+in              EDX                             in_edx                  ; EDX input
+in              ESI                             in_esi                  ; ESI input
+in              EDI                             in_edi                  ; EDI input
+
+out             EAX                             out_eax                 ; EAX output
+out             EBX                             out_ebx                 ; EBX output
+out             ECX                             out_ecx                 ; ECX output
+out             EDX                             out_edx                 ; EDX output
+out             ESI                             out_esi                 ; ESI output
+out             EDI                             out_edi                 ; EDI output
+
+out             CF                              out_cf                  ; CF flag output
+out             ZF                              out_zf                  ; ZF flag output
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Hook_Device_Service
+description     This service allows a device to monitor or replace the services of another virtual device.
+description     The hook should preserve the full functionality of the virtual device being hooked.
+description     More than one virtual device can hook a service. The last hook installed is called first.
+description     The hook procedure must save and restore registers that are not modified by the service,
+description     including flags. If the service uses the C calling convention, the hook procedure must
+description     preserve those across the call as well.
+
+in              EAX                             Service                 ; service to hook
+in              ESI=const+void*                 HookProc                ; hook procedure
+
+out             !CF                             .                       ; CF set if error, so return value nonzero if success
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Hook_Device_V86_API
+description     Installs an API callback procedure that allows a virtual device to intercept calls to
+description     the V86 mode API of another device. This is meant for devices that need to monitor calls
+description     to the APIs of other devices.
+
+in              EAX                             ID                      ; device ID
+in              ESI=const+void*                 Callback                ; API callback
+
+out             ESI=const+void*                 PreviousCallback        ; previous callback if success
+out             !CF                             Success                 ; CF set if error, return value nonzero if success
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Hook_Device_PM_API
+description     Installs an API callback procedure that allows a virtual device to intercept calls to
+description     the protected mode API of another device. This is meant for devices that need to monitor calls
+description     to the APIs of other devices.
+
+in              EAX                             ID                      ; device ID
+in              ESI=const+void*                 Callback                ; API callback
+
+out             ESI=const+void*                 PreviousCallback        ; previous callback if success
+out             !CF                             Success                 ; CF set if error, return value nonzero if success
+%enddef
+
+#--------------------------------------
+%defcall
+byname          System_Control
+description     This service sends a system control message to all virtual devices and the VMM
+
+in              EAX                             Message                 ; system control message
+in              EBX=vxd_vm_handle_t             VM                      ; VM handle, if needed by message
+in              ESI                             Param1
+in              EDI                             Param2
+in              EDX                             Param3
+
+out             !CF                             Success                 ; CF set if error, return value nonzero if success
+out             EAX                             out_eax
+out             EBX                             out_ebx
+out             ESI                             out_esi
+out             EDI                             out_edi
+out             EDX                             out_edx
+%enddef
+
+#--------------------------------------
+%defconstenum
+description     Type of I/O enumeration, for I/O trap routines
+description
+description     Source: Windows 3.1 DDK, D:\386\INCLUDE\VMM.INC, line 2069
+
+#       constant                    value
+def     Byte_Input                  0x00
+def     Byte_Output                 0x04
+def     Word_Input                  0x08
+def     Word_Output                 0x0C
+def     Dword_Input                 0x10
+def     Dword_Output                0x14
+%enddef
+
+#--------------------------------------
+%defconstenum
+description     Type of I/O enumeration, for I/O trap routines
+description
+description     Source: Windows 3.1 DDK, D:\386\INCLUDE\VMM.INC, line 2069
+
+#       constant                    value
+def     IO_Seg_Mask                 0xffff0000                    ; TODO
+def     IO_Seg_Shift                0x10                          ; TODO
+%enddef
+
+#--------------------------------------
+%defconstbitfield
+description     Type of I/O enumeration, for I/O trap routines
+description
+description     Source: Windows 3.1 DDK, D:\386\INCLUDE\VMM.INC, line 2069
+
+#                                               default=1   default=(1<<width)-1
+#       constant                    bit number  bit width   value   comment
+def     Output                      2                             ; Output operation
+def     Word_IO                     3                             ; Word size I/O, 16-bit
+def     Dword_IO                    4                             ; Dword size I/O, 32-bit
+
+def     String_IO                   5                             ; Operation is string I/O operation
+def     Rep_IO                      6                             ; Operation is rep string I/O operation
+def     Addr_32_IO                  7                             ; Operation uses 32-bit addresses
+def     Reverse_IO                  8                             ; Operation is reverse string (DF=1)
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Simulate_IO
+description     The purpose of this service is to reduce complex I/O instructions to simpler terms.
+description     I/O callback procedures will jump to this service to handle I/O types it does not directly support.
+
+in              EAX                             Data                    ; data, for output operation
+in              EBX=vxd_vm_handle_t             VM                      ; current VM handle
+in              ECX                             IOType                  ; I/O type, as given to callback
+in              EDX                             Port                    ; I/O port
+in              EBP=void*                       crs                     ; Pointer to Client_Reg_Struc
+
+out             EAX                             .                       ; input data, if input operation
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Install_Mult_IO_Handlers
+description     Install I/O callback procedures for one or more I/O ports.
+description     This service is only available during initialization.
+description
+description     The I/O table must be created in code using the Begin_Vxd_IO_Table,
+description     End_Vxd_IO_Table, and Vxd_IO macros.
+
+in              EDI=const+void*                 IOTable                 ; pointer to a table created using IO table macros
+
+out             EDX                             BadPort                 ; if failed, the port number that failed
+out             !CF                             Success                 ; CF set if failed, nonzero if success
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Install_IO_Handler
+description     Install a callback procedure for trapping I/O ports and enables trapping for the specific port.
+description     This service is only available during initialization.
+description
+description     The callback procedure is called when a program in a virtual machine attempts to access the
+description     I/O port.
+description
+description     When called:
+description     EBX = VM
+description     ECX = IOType
+description     EDX = Port
+description     EBP = pointer to Client_Reg_Struc
+description     EAX = Data
+description     call [IOCallback]
+description     Data = EAX
+
+in              ESI=const+void*                 IOCallback              ; Callback procedure
+in              EDX                             Port                    ; I/O port
+
+out             !CF                             .                       ; CF set if failed, nonzero if success
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Enable_Global_Trapping
+description     Enable I/O port trapping for the specified port, in every virtual machine
+
+in              EDX                             Port                    ; I/O port
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Enable_Local_Trapping
+description     Enable I/O port trapping for the specified port in the specified VM
+
+in              EBX=vxd_vm_handle_t             VM                      ; Virtual machine
+in              EDX                             Port                    ; I/O port
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Disable_Global_Trapping
+description     Disable I/O port trapping for the specified port, in every virtual machine
+
+in              EDX                             Port                    ; I/O port
+%enddef
+
+#--------------------------------------
+%defcall
+byname          Disable_Local_Trapping
+description     Disable I/O port trapping for the specified port in the specified VM
+
+in              EBX=vxd_vm_handle_t             VM                      ; Virtual machine
+in              EDX                             Port                    ; I/O port
+%enddef
+
+#--------------------------------------
+%defcall
+byname          List_Create
+description     Create a list structure and return a handle to the list.
+
+in              EAX                             Flags                   ; creation flags
+in              ECX                             NodeSize                ; size in bytes of node in the list
+
+out             !CF                             Success                 ; CF set if error, Success set if success
+out             ESI                             List                    ; list handle if Success
+%enddef
+
+#--------------------------------------
+%defcall
+byname          List_Destroy
+description     Deallocate all nodes of a list and destroy the list handle.
+
+in              ESI                             List                    ; list handle to destroy
+%enddef
+
