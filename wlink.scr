@@ -3,7 +3,7 @@ system win_vxd
 file @OBJFILE@
 option map=@OUTFILE@.map
 option nocaseexact
-segment CLASS 'CODE' PRELOAD NONDISCARDABLE
+segment '_TEXT' PRELOAD NONDISCARDABLE
 option nodefaultlibs
 option modname=@MODNAME@
 option description 'winvxdlib driver'
