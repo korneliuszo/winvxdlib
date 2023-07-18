@@ -247,7 +247,7 @@ namespace REG
 
 template <auto fn, char... REGS>
 [[gnu::naked]]
-void vxd_control_hanlder()
+static inline void vxd_control_hanlder()
 {
 	using args_tuple = typename function_traits<decltype(fn)>::args_tuple;
     static_assert(std::tuple_size_v<args_tuple> == sizeof...(REGS));
