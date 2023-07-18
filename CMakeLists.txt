@@ -53,4 +53,5 @@ add_subdirectory(mouse)
 
 if(PROJECT_IS_TOP_LEVEL)
 add_subdirectory(helloworld)
+add_subdirectory(mousejumper)
 endif()
