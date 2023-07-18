@@ -133,6 +133,7 @@ enum class System_Control : uint32_t {
 	Destroy_VM = 0x000C,
 	VM_Suspend = 0x000D,
 	VM_Resume = 0x000E,
+	Set_Device_Focus = 0x000F,
 	Begin_Message_Mode = 0x0010,
 	End_Message_Mode = 0x0011,
 	Reboot_Processor = 0x0012,
