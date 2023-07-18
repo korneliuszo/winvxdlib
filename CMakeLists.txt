@@ -49,6 +49,7 @@ function(create_386 tgt modname)
 endfunction()
 
 add_subdirectory(headers)
+add_subdirectory(mouse)
 
 if(PROJECT_IS_TOP_LEVEL)
 add_subdirectory(helloworld)
