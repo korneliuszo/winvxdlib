@@ -24,10 +24,17 @@ function(create_386 tgt modname)
 	set(MODNAME ${modname})
 	set(OUTFILE ${CMAKE_CURRENT_BINARY_DIR}/${tgt})
 	set(in   $<TARGET_FILE_NAME:${tgt}>)
+	set(in_stripped   $<TARGET_FILE_NAME:${tgt}>.stripped)
+	add_custom_target( ${tgt}.stripped
+		DEPENDS ${tgt}
+		COMMAND ${CMAKE_OBJCOPY} 
+			--localize-hidden --strip-unneeded
+			${in} ${in_stripped}
+	)
 	add_custom_target( ${tgt}.obj
-		DEPENDS ${tgt} objconv
+		DEPENDS ${tgt}.stripped objconv
 		COMMAND ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/objconv/objconv
-			-fomf -nd ${in} ${OBJFILE}	
+			-fomf -nd ${in_stripped} ${OBJFILE}	
 	)
 	configure_file(
 		${CMAKE_CURRENT_FUNCTION_LIST_DIR}/wlink.scr

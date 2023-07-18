@@ -15,6 +15,7 @@ set(CMAKE_TRY_COMPILE_TARGET_TYPE   STATIC_LIBRARY)
 
 set(CMAKE_C_COMPILER ${tools}/bin/i386-elf-gcc)
 set(CMAKE_CXX_COMPILER ${tools}/bin/i386-elf-g++)
+set(CMAKE_OBJCOPY ${tools}/bin/i386-elf-objcopy)
 
 set(CMAKE_C_FLAGS -specs=nano.specs CACHE INTERNAL "")
 
