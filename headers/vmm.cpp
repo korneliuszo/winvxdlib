@@ -8,9 +8,25 @@
 #include <vmm.hpp>
 #include <vxdcall.hpp>
 
+
+/* These magic symbols are provided by the linker.  */
+extern void (*__init_array_start []) (void) __attribute__((weak));
+extern void (*__init_array_end []) (void) __attribute__((weak));
+//extern void (*__fini_array_start []) (void) __attribute__((weak));
+//extern void (*__fini_array_end []) (void) __attribute__((weak));
+
+[[gnu::weak]] void Crit_Init(void){};
+
 static bool Sys_Critical_Init(uint32_t sys_VM,uint32_t ref, uint32_t CmdTail, uint32_t pCRS)
 {
-	Out_Debug_String("Hello from gcc\r\n");
+	long i, count;
+
+	count = __init_array_end - __init_array_start;
+	for (i = 0; i < count; i++)
+		__init_array_start[i] ();
+
+	Crit_Init();
+
 	return true;
 }
 

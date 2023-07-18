@@ -276,4 +276,6 @@ consteval Control_callback Init_Control_callback()
 	return ret;
 }
 
+void Crit_Init(void);
+
 #endif /* HEADERS_VMM_HPP_ */
