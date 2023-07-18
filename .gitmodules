@@ -1,3 +1,6 @@
 [submodule "objconv"]
 	path = objconv
 	url = https://github.com/jordr/objconv
+[submodule "picolibc"]
+	path = picolibc
+	url = https://github.com/picolibc/picolibc/

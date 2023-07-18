@@ -7,6 +7,8 @@ set(CMAKE_CXX_FLAGS -O3)
 
 enable_language(ASM)
 
+add_subdirectory(picolibc)
+
 project(winvxdlib)
 
 SET_PROPERTY(GLOBAL PROPERTY TARGET_SUPPORTS_SHARED_LIBS true)
