@@ -15,20 +15,19 @@
 class Mouse {
 
 	uint16_t I33_Win_API_Seg;
-	uint16_t I33_Win_API_Off;
-	uint32_t VMD_Owner;
-	uint16_t sizex;
-	uint16_t sizey;
+	uint32_t I33_Win_API_Off;
+	volatile uint32_t VMD_Owner;
+	volatile uint16_t sizex;
+	volatile uint16_t sizey;
 	volatile uint16_t mouseposx;
 	volatile uint16_t mouseposy;
 	volatile bool mouseclicked;
-	vxd_semaphore_handle_t shandle;
-	vxd_semaphore_handle_t rhandle;
+	volatile vxd_vm_handle_t callingvm;
 	bool do_setting(uint32_t crs);
 public:
 	bool Init(uint32_t sysVM, uint32_t crs);
 	void Focus(uint32_t VID, uint32_t flags, uint32_t VM);
-	void Set_Mouse_Position(uint16_t x, uint16_t y, bool clicked = false);
+	void Set_Mouse_Position(uint32_t crs, uint16_t x, uint16_t y, bool clicked = false);
 };
 
 

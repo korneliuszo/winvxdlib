@@ -35,12 +35,6 @@ bool Mouse::Init(uint32_t sysVM, uint32_t crs)
 	Restore_Client_State(&save);
 	VMD_Owner = sysVM;
 
-	Create_Semaphore__response resp;
-	resp = Create_Semaphore(1);
-	shandle = resp.Semaphore;
-	resp = Create_Semaphore(0);
-	rhandle = resp.Semaphore;
-
 	return exists;
 }
 
@@ -96,7 +90,6 @@ bool Mouse::do_setting(uint32_t crs)
 
 	Client_Reg_Struc save;
 	Save_Client_State(&save);
-	Enable_VM_Ints();
 
 	Begin_Nest_V86_Exec();
 
@@ -110,42 +103,51 @@ bool Mouse::do_setting(uint32_t crs)
 	Resume_Exec();
 	End_Nest_Exec();
 	Restore_Client_State(&save);
-	Signal_Semaphore(rhandle);
+	if(callingvm != Get_Cur_VM_Handle())
+		Resume_VM(callingvm);
 
 #ifndef NDEBUG
 	//Out_Debug_String("do_setting EXIT\r\n");
 #endif
-
 	return 1;
 }
 
 
-void Mouse::Set_Mouse_Position(uint16_t x, uint16_t y, bool clicked)
+void Mouse::Set_Mouse_Position(uint32_t crs, uint16_t x, uint16_t y, bool clicked)
 {
 #ifndef NDEBUG
 	//Out_Debug_String("set_pos ENTER\r\n");
 #endif
-	Wait_Semaphore(shandle, Block_Svc_If_Ints_Locked | Block_Enable_Ints);
+	Begin_Critical_Section(0);
 #ifndef NDEBUG
 	//Out_Debug_String("set_pos LOCK\r\n");
 #endif
 	mouseposx = x;
 	mouseposy = y;
 	mouseclicked = clicked;
-	Call_Priority_VM_Event(
-			Time_Critical_Boost,
-			VMD_Owner,
-			0,
-			this,
-			(const void *)single_vxd_control_hanlder<
-				Cwrap<Mouse,&Mouse::do_setting,bool,uint32_t>,
-				'd','B'>,
-			0);
+	callingvm = Get_Cur_VM_Handle();
 #ifndef NDEBUG
 	//Out_Debug_String("set_pos PREWAIT\r\n");
 #endif
-	Wait_Semaphore(rhandle, Block_Svc_If_Ints_Locked | Block_Enable_Ints);
-	Signal_Semaphore(shandle);
+	if (VMD_Owner != Get_Cur_VM_Handle())
+	{
+		Call_Priority_VM_Event(
+				High_Pri_Device_Boost,
+				VMD_Owner,
+				PEF_Wait_Not_Crit | PEF_Wait_For_STI,
+				this,
+				(const void *)single_vxd_control_hanlder<
+					Cwrap<Mouse,&Mouse::do_setting,bool,uint32_t>,
+					'd','B'>,
+				0);
+		End_Crit_And_Suspend();
+	}
+	else
+	{
+		do_setting(crs);
+		End_Critical_Section();
+	}
+
 #ifndef NDEBUG
 	//Out_Debug_String("set_pos EXIT\r\n");
 #endif
