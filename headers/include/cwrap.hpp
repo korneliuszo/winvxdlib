@@ -17,4 +17,16 @@ static rettype Cwrap(uintptr_t cobj, Args...args)
     return (obj->*F)(args...);
 }
 
+template<typename rettype, typename ...Args>
+class Ccallback
+{
+public:
+	rettype (*callback)(void* obj, Args...);
+	void* obj;
+	rettype call(Args... args)
+	{
+		return callback(obj,args...);
+	}
+};
+
 #endif /* _CWRAP_HPP_ */

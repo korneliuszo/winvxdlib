@@ -21,6 +21,16 @@ const DDB DDB = Init_DDB(Device_ID::Undefined_Device_ID,
 
 Mouse mouse;
 
+bool timeout(uint32_t crs);
+
+void mouse_complete(void* obj)
+{
+	(void)obj;
+
+	Set_Global_Time_Out(2000, 0,
+			(const void *)single_vxd_control_hanlder<
+			timeout,'B'>);
+}
 
 bool timeout(uint32_t crs)
 {
@@ -36,11 +46,8 @@ bool timeout(uint32_t crs)
 	static int seq = 0;
 	if(++seq == (sizeof(positions)/sizeof(*positions)))
 		seq = 0;
-	mouse.Set_Mouse_Position(crs, positions[seq].x, positions[seq].y);
+	mouse.Set_Mouse_Position({mouse_complete,nullptr}, positions[seq].x, positions[seq].y);
 
-	Set_Global_Time_Out(2000, 0,
-			(const void *)single_vxd_control_hanlder<
-			timeout,'B'>);
 	return 1;
 }
 

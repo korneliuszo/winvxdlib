@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include <vmm.hpp>
 #include <gcc.h>
+#include <cwrap.hpp>
 
 class Mouse {
 
@@ -22,12 +23,12 @@ class Mouse {
 	volatile uint16_t mouseposx;
 	volatile uint16_t mouseposy;
 	volatile bool mouseclicked;
-	volatile vxd_vm_handle_t callingvm;
+	Ccallback<void> mousecallback;
 	bool do_setting(uint32_t crs);
 public:
 	bool Init(uint32_t sysVM, uint32_t crs);
 	void Focus(uint32_t VID, uint32_t flags, uint32_t VM);
-	void Set_Mouse_Position(uint32_t crs, uint16_t x, uint16_t y, bool clicked = false);
+	void Set_Mouse_Position(const Ccallback<void> &callback, uint16_t x, uint16_t y, bool clicked = false);
 };
 
 

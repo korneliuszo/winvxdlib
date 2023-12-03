@@ -103,8 +103,7 @@ bool Mouse::do_setting(uint32_t crs)
 	Resume_Exec();
 	End_Nest_Exec();
 	Restore_Client_State(&save);
-	if(callingvm != Get_Cur_VM_Handle())
-		Resume_VM(callingvm);
+	mousecallback.call();
 
 #ifndef NDEBUG
 	//Out_Debug_String("do_setting EXIT\r\n");
@@ -113,7 +112,7 @@ bool Mouse::do_setting(uint32_t crs)
 }
 
 
-void Mouse::Set_Mouse_Position(uint32_t crs, uint16_t x, uint16_t y, bool clicked)
+void Mouse::Set_Mouse_Position(const Ccallback<void> &callback, uint16_t x, uint16_t y, bool clicked)
 {
 #ifndef NDEBUG
 	//Out_Debug_String("set_pos ENTER\r\n");
@@ -125,28 +124,21 @@ void Mouse::Set_Mouse_Position(uint32_t crs, uint16_t x, uint16_t y, bool clicke
 	mouseposx = x;
 	mouseposy = y;
 	mouseclicked = clicked;
-	callingvm = Get_Cur_VM_Handle();
+	mousecallback = callback;
+	End_Critical_Section();
+
 #ifndef NDEBUG
 	//Out_Debug_String("set_pos PREWAIT\r\n");
 #endif
-	if (VMD_Owner != Get_Cur_VM_Handle())
-	{
-		Call_Priority_VM_Event(
-				High_Pri_Device_Boost,
-				VMD_Owner,
-				PEF_Wait_Not_Crit | PEF_Wait_For_STI,
-				this,
-				(const void *)single_vxd_control_hanlder<
-					Cwrap<Mouse,&Mouse::do_setting,bool,uint32_t>,
-					'd','B'>,
-				0);
-		End_Crit_And_Suspend();
-	}
-	else
-	{
-		do_setting(crs);
-		End_Critical_Section();
-	}
+	Call_Priority_VM_Event(
+		High_Pri_Device_Boost,
+		VMD_Owner,
+		PEF_Wait_Not_Crit | PEF_Wait_For_STI,
+		this,
+		(const void *)single_vxd_control_hanlder<
+			Cwrap<Mouse,&Mouse::do_setting,bool,uint32_t>,
+			'd','B'>,
+		0);
 
 #ifndef NDEBUG
 	//Out_Debug_String("set_pos EXIT\r\n");
