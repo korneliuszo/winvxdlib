@@ -169,6 +169,7 @@ sub reg2type($) {
 }
 
 print "/* auto-generated from $defname, do not edit. */\n";
+print "#pragma once\n";
 print "\n";
 
 if ($description ne "") {

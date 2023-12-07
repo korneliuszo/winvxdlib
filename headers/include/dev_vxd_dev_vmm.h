@@ -1,4 +1,5 @@
 /* auto-generated from dev_vxd_dev_vmm.vxddef, do not edit. */
+#pragma once
 
 /* Windows Virtual Machine Manager                                                 */
 /*                                                                                 */
@@ -637,7 +638,7 @@ static inline Get_VMM_Version__response Get_VMM_Version(void) {
 
     __asm__ (
         VXD_AsmCall(VMM_Device_ID,VMM_snr_Get_VMM_Version)
-        : /* outputs */ "=a" (r.version), "=c" (r.Debug)
+        : /* outputs */ "=c" (r.Debug), "=a" (r.version)
         : /* inputs */
         : /* clobbered */
     );
@@ -1487,8 +1488,8 @@ static inline uint32_t Map_Flat(uint16_t const SegOffOffset/*ax*/) {
 /*   ECX = Limit (segment limit in bytes - 1 (a value of 0 means 1 byte long)) */
 
 /* outputs: */
-/*   EDX = Offset (address offset) */
 /*   CX = SegSel (segment/selector if success) */
+/*   EDX = Offset (address offset) */
 /*   CF = error (CF set if error, clear if success) */
 
 typedef struct Map_Lin_To_VM_Addr__response {
@@ -1502,7 +1503,7 @@ static inline Map_Lin_To_VM_Addr__response Map_Lin_To_VM_Addr(const void* const 
 
     __asm__ (
         VXD_AsmCall(VMM_Device_ID,VMM_snr_Map_Lin_To_VM_Addr)
-        : /* outputs */ "=c" (r.SegSel), "=@ccc" (r.error), "=d" (r.Offset)
+        : /* outputs */ "=@ccc" (r.error), "=d" (r.Offset), "=c" (r.SegSel)
         : /* inputs */ "a" (LineAddr), "c" (Limit)
         : /* clobbered */
     );
@@ -1805,8 +1806,8 @@ static inline void Signal_Semaphore(vxd_semaphore_handle_t const Semaphore/*eax*
 /*   None */
 
 /* outputs: */
-/*   ECX = Claims (number of times claimed) */
 /*   EBX = VM (VM handle of owner) */
+/*   ECX = Claims (number of times claimed) */
 /*   CF = high_priority (CF set if priority is Critical_Section_Boost or higher) */
 
 /* asynchronous: */
@@ -1823,7 +1824,7 @@ static inline Get_Crit_Section_Status__response Get_Crit_Section_Status(void) {
 
     __asm__ (
         VXD_AsmCall(VMM_Device_ID,VMM_snr_Get_Crit_Section_Status)
-        : /* outputs */ "=b" (r.VM), "=c" (r.Claims), "=@ccc" (r.high_priority)
+        : /* outputs */ "=@ccc" (r.high_priority), "=c" (r.Claims), "=b" (r.VM)
         : /* inputs */
         : /* clobbered */
     );
@@ -2119,8 +2120,8 @@ static inline _Bool Set_Execution_Focus(vxd_vm_handle_t const VM/*ebx*/) {
 /* outputs: */
 /*   EAX = Flags (Status flags from the CB_VM_Status field of the VM control block (VMStat_*)) */
 /*   ECX = Foreground (foreground time-slice priority (hi WORD is always 0)) */
-/*   EDX = Background (background time-slice priority (hi WORD is always 0)) */
 /*   ESI = CPUTime (percentage of total CPU time used (or, maximum time the VM can run?? docs are a bit confusing.)) */
+/*   EDX = Background (background time-slice priority (hi WORD is always 0)) */
 
 typedef struct Get_Time_Slice_Priority__response {
     uint32_t Flags; /* EAX */
@@ -2134,7 +2135,7 @@ static inline Get_Time_Slice_Priority__response Get_Time_Slice_Priority(vxd_vm_h
 
     __asm__ (
         VXD_AsmCall(VMM_Device_ID,VMM_snr_Get_Time_Slice_Priority)
-        : /* outputs */ "=a" (r.Flags), "=S" (r.CPUTime), "=d" (r.Background), "=c" (r.Foreground)
+        : /* outputs */ "=a" (r.Flags), "=S" (r.CPUTime), "=c" (r.Foreground), "=d" (r.Background)
         : /* inputs */ "b" (VM)
         : /* clobbered */
     );
@@ -2230,8 +2231,8 @@ static inline void Set_Time_Slice_Granularity(uint32_t const Time/*eax*/) {
 
 /* outputs: */
 /*   EAX = Scheduled (number of virtual machines scheduled) */
-/*   EBX = Current (handle of currently scheduled virtual machine) */
 /*   ECX = Idle (number of idle virtual machines) */
+/*   EBX = Current (handle of currently scheduled virtual machine) */
 
 /* asynchronous: */
 /*   yes */
@@ -2550,8 +2551,8 @@ static inline _Bool Hook_V86_Int_Chain(uint32_t const Interrupt/*eax*/,const voi
 /*   EAX = Interrupt (Interrupt number to retrieve) */
 
 /* outputs: */
-/*   CX = Segment (segment address of interrupt routine) */
 /*   EDX = Offset (offset of interrupt routine (high WORD is zero)) */
+/*   CX = Segment (segment address of interrupt routine) */
 
 typedef struct Get_V86_Int_Vector__response {
     uint16_t Segment; /* CX */
@@ -2608,8 +2609,8 @@ static inline void Set_V86_Int_Vector(uint32_t const Interrupt/*eax*/,uint16_t c
 /*   EAX = Interrupt (Interrupt nummber to set) */
 
 /* outputs: */
-/*   EDX = Offset (offset) */
 /*   CX = Segment (segment selector) */
+/*   EDX = Offset (offset) */
 
 typedef struct Get_PM_Int_Vector__response {
     uint16_t Segment; /* CX */
@@ -3118,7 +3119,7 @@ static inline _PageAllocate__response _PageAllocate(uint32_t const nPages/*__cde
         "push %2\n"
         VXD_AsmCall(VMM_Device_ID,VMM_snr__PageAllocate)
         "addl $32,%%esp\n"
-        : /* outputs */ "=d" (r.Address), "=a" (r.Handle)
+        : /* outputs */ "=a" (r.Handle), "=d" (r.Address)
         : /* inputs */ "g" (nPages), "g" (pType), "g" (VM), "g" (AlignMask), "g" (minPhys), "g" (maxPhys), "g" (PhysAddr), "g" (flags)
         : /* clobbered */
     );
@@ -3143,8 +3144,8 @@ static inline _PageAllocate__response _PageAllocate(uint32_t const nPages/*__cde
 /*   __CDECL2 = flags (operation flags (Page* constants)) */
 
 /* outputs: */
-/*   EAX = Handle (new memory handle, or 0 if error) */
 /*   EDX = Address (new ring-0 address of memory block, or 0 if error) */
+/*   EAX = Handle (new memory handle, or 0 if error) */
 
 typedef struct _PageReAllocate__response {
     uint32_t Handle; /* EAX */
@@ -3306,7 +3307,7 @@ static inline _PageGetSizeAddr__response _PageGetSizeAddr(uint32_t const hMem/*_
         "push %2\n"
         VXD_AsmCall(VMM_Device_ID,VMM_snr__PageGetSizeAddr)
         "addl $8,%%esp\n"
-        : /* outputs */ "=a" (r.Pages), "=d" (r.Address)
+        : /* outputs */ "=d" (r.Address), "=a" (r.Pages)
         : /* inputs */ "g" (hMem), "g" (flags)
         : /* clobbered */
     );
@@ -3326,8 +3327,8 @@ static inline _PageGetSizeAddr__response _PageGetSizeAddr(uint32_t const hMem/*_
 /*   __CDECL0 = flags (operating flags, must be zero) */
 
 /* outputs: */
-/*   EDX = Lockable (count of lockable pages) */
 /*   EAX = Free (count of free pages) */
+/*   EDX = Lockable (count of lockable pages) */
 
 typedef struct _PageGetAllocInfo__response {
     uint32_t Free; /* EAX */
@@ -3341,7 +3342,7 @@ static inline _PageGetAllocInfo__response _PageGetAllocInfo(uint32_t const flags
         "push %2\n"
         VXD_AsmCall(VMM_Device_ID,VMM_snr__PageGetAllocInfo)
         "addl $4,%%esp\n"
-        : /* outputs */ "=a" (r.Free), "=d" (r.Lockable)
+        : /* outputs */ "=d" (r.Lockable), "=a" (r.Free)
         : /* inputs */ "g" (flags)
         : /* clobbered */
     );
@@ -3374,7 +3375,7 @@ static inline _GetFreePageCount__response _GetFreePageCount(uint32_t const flags
         "push %2\n"
         VXD_AsmCall(VMM_Device_ID,VMM_snr__GetFreePageCount)
         "addl $4,%%esp\n"
-        : /* outputs */ "=d" (r.LockablePages), "=a" (r.FreePages)
+        : /* outputs */ "=a" (r.FreePages), "=d" (r.LockablePages)
         : /* inputs */ "g" (flags)
         : /* clobbered */
     );
@@ -3436,7 +3437,7 @@ static inline _GetVMPgCount__response _GetVMPgCount(uint32_t const VM/*__cdecl0*
         "push %2\n"
         VXD_AsmCall(VMM_Device_ID,VMM_snr__GetVMPgCount)
         "addl $8,%%esp\n"
-        : /* outputs */ "=d" (r.NotMappedIn1MB), "=a" (r.TotalPages)
+        : /* outputs */ "=a" (r.TotalPages), "=d" (r.NotMappedIn1MB)
         : /* inputs */ "g" (VM), "g" (flags)
         : /* clobbered */
     );
@@ -3661,8 +3662,8 @@ static inline uint32_t _CopyPageTable(uint32_t const LinPgNum/*__cdecl0*/,uint32
 /*   __CDECL4 = flags (operating flags. must be zero) */
 
 /* outputs: */
-/*   EDX = v86mapaddr ("if success, EDX contains the V86 address to which the pages are mapped") */
 /*   EAX = mapped (nonzero if success, fail if zero) */
+/*   EDX = v86mapaddr ("if success, EDX contains the V86 address to which the pages are mapped") */
 
 typedef struct _LinMapIntoV86__response {
     uint32_t mapped; /* EAX */
@@ -3680,7 +3681,7 @@ static inline _LinMapIntoV86__response _LinMapIntoV86(uint32_t const HLinPgNum/*
         "push %2\n"
         VXD_AsmCall(VMM_Device_ID,VMM_snr__LinMapIntoV86)
         "addl $20,%%esp\n"
-        : /* outputs */ "=d" (r.v86mapaddr), "=a" (r.mapped)
+        : /* outputs */ "=a" (r.mapped), "=d" (r.v86mapaddr)
         : /* inputs */ "g" (HLinPgNum), "g" (VM), "g" (VMLinPgNum), "g" (nPages), "g" (flags)
         : /* clobbered */
     );
@@ -4296,8 +4297,8 @@ static inline void MMGR_SetNULPageAddr(uint32_t const PhysAddr/*eax*/) {
 /*   __CDECL2 = flags (operation flags, must be zero) */
 
 /* outputs: */
-/*   EDX = SelCount (selector for GDT (low 16 bits) and size of GDT (upper 16 bits)) */
 /*   EAX = GDTSel (selector for the GDT, or zero if failure) */
+/*   EDX = SelCount (selector for GDT (low 16 bits) and size of GDT (upper 16 bits)) */
 
 typedef struct _Allocate_GDT_Selector__response {
     uint32_t GDTSel; /* EAX */
@@ -4364,8 +4365,8 @@ static inline uint32_t _Free_GDT_Selector(uint32_t const Selector/*__cdecl0*/,ui
 /*   __CDECL4 = flags (operation flags, must be zero) */
 
 /* outputs: */
-/*   EAX = Selector (Selector of LDT (first one, if multiple allocated) or zero if error) */
 /*   EDX = SelCount (selector for LDT (low 16 bits) and size of LDT (upper 16 bits)) */
+/*   EAX = Selector (Selector of LDT (first one, if multiple allocated) or zero if error) */
 
 typedef struct _Allocate_LDT_Selector__response {
     uint32_t Selector; /* EAX */
@@ -4503,7 +4504,7 @@ static inline _GetDescriptor__response _GetDescriptor(uint32_t const Selector/*_
         "push %2\n"
         VXD_AsmCall(VMM_Device_ID,VMM_snr__GetDescriptor)
         "addl $12,%%esp\n"
-        : /* outputs */ "=a" (r.desc_lo), "=d" (r.desc_hi)
+        : /* outputs */ "=d" (r.desc_hi), "=a" (r.desc_lo)
         : /* inputs */ "g" (Selector), "g" (VM), "g" (flags)
         : /* clobbered */
     );
@@ -4597,8 +4598,8 @@ static inline uint32_t _MMGR_Toggle_HMA(vxd_vm_handle_t const VM/*__cdecl0*/,uin
 
 /* outputs: */
 /*   !CF = Success (CF=0 if success, CF=1 if error) */
-/*   EDI = FaultHandler_VMM (address of VMM fault handler, or zero if none installed) */
 /*   ESI = FaultHandler_PM (address of protected mode fault handler, or zero if none installed) */
+/*   EDI = FaultHandler_VMM (address of VMM fault handler, or zero if none installed) */
 /*   EDX = FaultHandler_V86 (address of V86 fault handler, or zero if none installed) */
 
 /* returns: */
@@ -4616,7 +4617,7 @@ static inline Get_Fault_Hook_Addrs__response Get_Fault_Hook_Addrs(uint32_t const
 
     __asm__ (
         VXD_AsmCall(VMM_Device_ID,VMM_snr_Get_Fault_Hook_Addrs)
-        : /* outputs */ "=@ccnc" (r.Success), "=S" (r.FaultHandler_PM), "=d" (r.FaultHandler_V86), "=D" (r.FaultHandler_VMM)
+        : /* outputs */ "=d" (r.FaultHandler_V86), "=D" (r.FaultHandler_VMM), "=S" (r.FaultHandler_PM), "=@ccnc" (r.Success)
         : /* inputs */ "a" (Interrupt)
         : /* clobbered */
     );
@@ -4690,7 +4691,7 @@ static inline Hook_PM_Fault__response Hook_PM_Fault(uint32_t const Interrupt/*ea
 
     __asm__ (
         VXD_AsmCall(VMM_Device_ID,VMM_snr_Hook_PM_Fault)
-        : /* outputs */ "=S" (r.Previous), "=@ccnc" (r.Success)
+        : /* outputs */ "=@ccnc" (r.Success), "=S" (r.Previous)
         : /* inputs */ "a" (Interrupt), "S" (FaultProc)
         : /* clobbered */
     );
@@ -4714,8 +4715,8 @@ static inline Hook_PM_Fault__response Hook_PM_Fault(uint32_t const Interrupt/*ea
 /*   ESI = FaultProc (points to a fault handler) */
 
 /* outputs: */
-/*   ESI = Previous (previous fault handler, if any, or zero if none was installed) */
 /*   !CF = Success (carry set if not installed) */
+/*   ESI = Previous (previous fault handler, if any, or zero if none was installed) */
 
 typedef struct Hook_VMM_Fault__response {
     _Bool Success; /* !CF */
@@ -4727,7 +4728,7 @@ static inline Hook_VMM_Fault__response Hook_VMM_Fault(uint32_t const Interrupt/*
 
     __asm__ (
         VXD_AsmCall(VMM_Device_ID,VMM_snr_Hook_VMM_Fault)
-        : /* outputs */ "=S" (r.Previous), "=@ccnc" (r.Success)
+        : /* outputs */ "=@ccnc" (r.Success), "=S" (r.Previous)
         : /* inputs */ "a" (Interrupt), "S" (FaultProc)
         : /* clobbered */
     );
@@ -5078,14 +5079,14 @@ static inline void Restore_Client_State(const void* const Buffer/*esi*/) {
 /*   EDI = in_edi (EDI input) */
 
 /* outputs: */
-/*   EAX = out_eax (EAX output) */
-/*   EBX = out_ebx (EBX output) */
 /*   ZF = out_zf (ZF flag output) */
-/*   ESI = out_esi (ESI output) */
 /*   EDX = out_edx (EDX output) */
-/*   ECX = out_ecx (ECX output) */
-/*   CF = out_cf (CF flag output) */
+/*   EAX = out_eax (EAX output) */
 /*   EDI = out_edi (EDI output) */
+/*   ESI = out_esi (ESI output) */
+/*   ECX = out_ecx (ECX output) */
+/*   EBX = out_ebx (EBX output) */
+/*   CF = out_cf (CF flag output) */
 
 typedef struct Exec_VxD_Int__response {
     uint32_t out_eax; /* EAX */
@@ -5105,7 +5106,7 @@ static inline Exec_VxD_Int__response Exec_VxD_Int(uint32_t const Interrupt/*__cd
         "push %8\n"
         VXD_AsmCall(VMM_Device_ID,VMM_snr_Exec_VxD_Int)
         "addl $4,%%esp\n"
-        : /* outputs */ "=D" (r.out_edi), "=@ccc" (r.out_cf), "=d" (r.out_edx), "=S" (r.out_esi), "=c" (r.out_ecx), "=@ccz" (r.out_zf), "=b" (r.out_ebx), "=a" (r.out_eax)
+        : /* outputs */ "=d" (r.out_edx), "=@ccz" (r.out_zf), "=a" (r.out_eax), "=b" (r.out_ebx), "=D" (r.out_edi), "=c" (r.out_ecx), "=S" (r.out_esi), "=@ccc" (r.out_cf)
         : /* inputs */ "g" (Interrupt), "a" (in_eax), "b" (in_ebx), "c" (in_ecx), "d" (in_edx), "S" (in_esi), "D" (in_edi)
         : /* clobbered */
     );
@@ -5157,8 +5158,8 @@ static inline _Bool Hook_Device_Service(uint32_t const Service/*eax*/,const void
 /*   ESI = Callback (API callback) */
 
 /* outputs: */
-/*   !CF = Success (CF set if error, return value nonzero if success) */
 /*   ESI = PreviousCallback (previous callback if success) */
+/*   !CF = Success (CF set if error, return value nonzero if success) */
 
 typedef struct Hook_Device_V86_API__response {
     const void* PreviousCallback; /* ESI */
@@ -5191,8 +5192,8 @@ static inline Hook_Device_V86_API__response Hook_Device_V86_API(uint32_t const I
 /*   ESI = Callback (API callback) */
 
 /* outputs: */
-/*   !CF = Success (CF set if error, return value nonzero if success) */
 /*   ESI = PreviousCallback (previous callback if success) */
+/*   !CF = Success (CF set if error, return value nonzero if success) */
 
 typedef struct Hook_Device_PM_API__response {
     const void* PreviousCallback; /* ESI */
@@ -5226,11 +5227,11 @@ static inline Hook_Device_PM_API__response Hook_Device_PM_API(uint32_t const ID/
 /*   EDX = Param3 () */
 
 /* outputs: */
-/*   EDI = out_edi () */
+/*   EAX = out_eax () */
+/*   !CF = Success (CF set if error, return value nonzero if success) */
 /*   EDX = out_edx () */
 /*   ESI = out_esi () */
-/*   !CF = Success (CF set if error, return value nonzero if success) */
-/*   EAX = out_eax () */
+/*   EDI = out_edi () */
 /*   EBX = out_ebx () */
 
 typedef struct System_Control__response {
@@ -5247,7 +5248,7 @@ static inline System_Control__response System_Control(uint32_t const Message/*ea
 
     __asm__ (
         VXD_AsmCall(VMM_Device_ID,VMM_snr_System_Control)
-        : /* outputs */ "=D" (r.out_edi), "=d" (r.out_edx), "=S" (r.out_esi), "=b" (r.out_ebx), "=@ccnc" (r.Success), "=a" (r.out_eax)
+        : /* outputs */ "=d" (r.out_edx), "=@ccnc" (r.Success), "=a" (r.out_eax), "=S" (r.out_esi), "=D" (r.out_edi), "=b" (r.out_ebx)
         : /* inputs */ "a" (Message), "b" (VM), "S" (Param1), "D" (Param2), "d" (Param3)
         : /* clobbered */
     );
@@ -5332,8 +5333,8 @@ static inline uint32_t Simulate_IO(uint32_t const Data/*eax*/,vxd_vm_handle_t co
 /*   EDI = IOTable (pointer to a table created using IO table macros) */
 
 /* outputs: */
-/*   EDX = BadPort (if failed, the port number that failed) */
 /*   !CF = Success (CF set if failed, nonzero if success) */
+/*   EDX = BadPort (if failed, the port number that failed) */
 
 typedef struct Install_Mult_IO_Handlers__response {
     uint32_t BadPort; /* EDX */
@@ -5489,8 +5490,8 @@ static inline void Disable_Local_Trapping(vxd_vm_handle_t const VM/*ebx*/,uint32
 /*   ECX = NodeSize (size in bytes of node in the list) */
 
 /* outputs: */
-/*   ESI = List (list handle if Success) */
 /*   !CF = Success (CF set if error, Success set if success) */
+/*   ESI = List (list handle if Success) */
 
 typedef struct List_Create__response {
     _Bool Success; /* !CF */
