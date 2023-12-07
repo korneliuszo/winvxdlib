@@ -21,18 +21,18 @@ const DDB DDB = Init_DDB(Device_ID::Undefined_Device_ID,
 
 Mouse mouse;
 
-bool timeout(uint32_t crs);
+void timeout(uint32_t crs);
 
 void mouse_complete(void* obj)
 {
 	(void)obj;
 
 	Set_Global_Time_Out(2000, 0,
-			(const void *)single_vxd_control_hanlder<
+			(const void *)saved_flags<
 			timeout,'B'>);
 }
 
-bool timeout(uint32_t crs)
+void timeout(uint32_t crs)
 {
 	struct {
 		uint16_t x;
@@ -48,7 +48,7 @@ bool timeout(uint32_t crs)
 		seq = 0;
 	mouse.Set_Mouse_Position({mouse_complete,nullptr}, positions[seq].x, positions[seq].y);
 
-	return 1;
+	return;
 }
 
 
@@ -57,7 +57,7 @@ bool Device_Init(uint32_t cmdtail, uint32_t sysVM, uint32_t crs)
 	bool exists = mouse.Init(sysVM, crs);
 	if(exists)
 		Set_Global_Time_Out(2000, 0,
-				(const void *)single_vxd_control_hanlder<
+				(const void *)saved_flags<
 				timeout,'B'>);
 	return exists;
 }

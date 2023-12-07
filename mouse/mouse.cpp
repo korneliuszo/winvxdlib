@@ -20,7 +20,7 @@ bool Mouse::Init(uint32_t sysVM, uint32_t crs)
 
 	Client_Reg_Struc save;
 	Save_Client_State(&save);
-	Begin_Nest_Exec();
+	Begin_Nest_V86_Exec();
 
 	pCRS->Client_EAX = 0x1607;
 	pCRS->Client_EBX = 0xC;
@@ -103,6 +103,7 @@ bool Mouse::do_setting(uint32_t crs)
 	Resume_Exec();
 	End_Nest_Exec();
 	Restore_Client_State(&save);
+
 	mousecallback.call();
 
 #ifndef NDEBUG
@@ -117,7 +118,6 @@ void Mouse::Set_Mouse_Position(const Ccallback<void> &callback, uint16_t x, uint
 #ifndef NDEBUG
 	//Out_Debug_String("set_pos ENTER\r\n");
 #endif
-	Begin_Critical_Section(0);
 #ifndef NDEBUG
 	//Out_Debug_String("set_pos LOCK\r\n");
 #endif
@@ -125,7 +125,6 @@ void Mouse::Set_Mouse_Position(const Ccallback<void> &callback, uint16_t x, uint
 	mouseposy = y;
 	mouseclicked = clicked;
 	mousecallback = callback;
-	End_Critical_Section();
 
 #ifndef NDEBUG
 	//Out_Debug_String("set_pos PREWAIT\r\n");
@@ -133,9 +132,9 @@ void Mouse::Set_Mouse_Position(const Ccallback<void> &callback, uint16_t x, uint
 	Call_Priority_VM_Event(
 		High_Pri_Device_Boost,
 		VMD_Owner,
-		PEF_Wait_Not_Crit | PEF_Wait_For_STI,
+		PEF_Wait_Not_Crit | PEF_Wait_For_STI | PEF_Always_Sched,
 		this,
-		(const void *)single_vxd_control_hanlder<
+		(const void *)vxd_control_hanlder<
 			Cwrap<Mouse,&Mouse::do_setting,bool,uint32_t>,
 			'd','B'>,
 		0);

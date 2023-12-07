@@ -17,6 +17,13 @@ static rettype Cwrap(uintptr_t cobj, Args...args)
     return (obj->*F)(args...);
 }
 
+template<class C, auto F,typename rettype, typename ...Args>
+static rettype Cwrapp(void* cobj, Args...args)
+{
+    C* obj = (C*)cobj;
+    return (obj->*F)(args...);
+}
+
 template<typename rettype, typename ...Args>
 class Ccallback
 {

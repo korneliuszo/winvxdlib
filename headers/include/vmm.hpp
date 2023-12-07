@@ -263,23 +263,40 @@ static inline void vxd_control_hanlder()
 
 template <auto fn, char... REGS>
 [[gnu::naked]]
-static inline void single_vxd_control_hanlder()
+static inline void saved_flags()
 {
 	using args_tuple = typename function_traits<decltype(fn)>::args_tuple;
     static_assert(std::tuple_size_v<args_tuple> == sizeof...(REGS));
-    static_assert(std::is_same<typename function_traits<decltype(fn)>::return_type,bool>::value);
+    static_assert(std::is_same<typename function_traits<decltype(fn)>::return_type,void>::value);
 	static_assert(has_type<uint32_t,args_tuple>::value);
 
+	asm volatile("pushf");
 	REG::Pusher<REGS...>::pusher();
 
 	asm volatile("call %P0"::"i"(fn));
 	asm volatile("add %0, %%esp"::"i"(sizeof...(REGS)*4));
-	asm volatile("test %eax,%eax");
-	asm volatile(
-			"jnz 1f \n\t"
-			"clc\n\t ret\n\t"
-			"1: stc\n\t ret");
+	asm volatile("popf");
+	asm volatile("ret");
 
+}
+
+template <auto fn, char... REGS>
+[[gnu::naked]]
+static inline void saveall()
+{
+	using args_tuple = typename function_traits<decltype(fn)>::args_tuple;
+    static_assert(std::tuple_size_v<args_tuple> == sizeof...(REGS));
+    static_assert(std::is_same<typename function_traits<decltype(fn)>::return_type,void>::value);
+	static_assert(has_type<uint32_t,args_tuple>::value);
+
+	asm volatile("pushf");
+	asm volatile("pushal");
+	REG::Pusher<REGS...>::pusher();
+	asm volatile("call %P0"::"i"(fn));
+	asm volatile("add %0, %%esp"::"i"(sizeof...(REGS)*4));
+	asm volatile("popal");
+	asm volatile("popf");
+	asm volatile("ret");
 }
 
 struct [[gnu::packed]] Control_callback{

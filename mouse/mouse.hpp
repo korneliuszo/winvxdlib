@@ -17,12 +17,12 @@ class Mouse {
 
 	uint16_t I33_Win_API_Seg;
 	uint32_t I33_Win_API_Off;
-	volatile uint32_t VMD_Owner;
-	volatile uint16_t sizex;
-	volatile uint16_t sizey;
-	volatile uint16_t mouseposx;
-	volatile uint16_t mouseposy;
-	volatile bool mouseclicked;
+	uint32_t VMD_Owner;
+	uint16_t sizex;
+	uint16_t sizey;
+	uint16_t mouseposx;
+	uint16_t mouseposy;
+	bool mouseclicked;
 	Ccallback<void> mousecallback;
 	bool do_setting(uint32_t crs);
 public:
