@@ -32,7 +32,9 @@ public:
 	void* obj;
 	rettype call(Args... args)
 	{
-		return callback(obj,args...);
+		if (callback)
+			return callback(obj,args...);
+		return rettype{};
 	}
 };
 
