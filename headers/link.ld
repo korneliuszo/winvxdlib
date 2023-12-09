@@ -3,8 +3,6 @@ SECTIONS
   .text :
   {
   	KEEP(*(.ddb*))
-  	*(.init*)
-  	*(.fini*)
   	*(.text*)
   	_eh_frame = .;
   	KEEP(*(.eh_frame*))
