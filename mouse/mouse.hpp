@@ -22,13 +22,14 @@ class Mouse {
 	uint16_t sizey;
 	uint16_t mouseposx;
 	uint16_t mouseposy;
-	bool mouseclicked;
+	uint8_t mouseclicked;
 	Ccallback<void> mousecallback;
+	vxd_priority_vm_event_handle_t vm_event;
 	bool do_setting(uint32_t crs);
 public:
 	bool Init(uint32_t sysVM, uint32_t crs);
 	void Focus(uint32_t VID, uint32_t flags, uint32_t VM);
-	void Set_Mouse_Position(const Ccallback<void> &callback, uint16_t x, uint16_t y, bool clicked = false);
+	void Set_Mouse_Position(const Ccallback<void> &callback, uint16_t x, uint16_t y, uint8_t clicked = 0x00);
 };
 
 

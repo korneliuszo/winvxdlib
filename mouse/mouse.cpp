@@ -49,6 +49,7 @@ void Mouse::Focus(uint32_t VID, uint32_t flags, uint32_t VM)
 bool Mouse::do_setting(uint32_t crs)
 {
 	volatile Client_Reg_Struc *pCRS = (Client_Reg_Struc *)crs;
+	vm_event = 0;
 
 #ifndef NDEBUG
 	//Out_Debug_String("do_setting ENTER\r\n");
@@ -94,7 +95,7 @@ bool Mouse::do_setting(uint32_t crs)
 	Begin_Nest_V86_Exec();
 
 	pCRS->Client_EAX = 1;
-	pCRS->Client_EDX = mouseclicked ? 1 : 0;
+	pCRS->Client_EDX = mouseclicked;
 	pCRS->Client_ESI = 0;
 	pCRS->Client_EBX = (mouseposx*(sizex+1))>>16;
 	pCRS->Client_ECX = (mouseposy*(sizey+1))>>16;
@@ -113,11 +114,17 @@ bool Mouse::do_setting(uint32_t crs)
 }
 
 
-void Mouse::Set_Mouse_Position(const Ccallback<void> &callback, uint16_t x, uint16_t y, bool clicked)
+void Mouse::Set_Mouse_Position(const Ccallback<void> &callback, uint16_t x, uint16_t y, uint8_t clicked)
 {
 #ifndef NDEBUG
 	//Out_Debug_String("set_pos ENTER\r\n");
 #endif
+	if(vm_event)
+	{
+		Cancel_Priority_VM_Event(vm_event);
+		vm_event = 0;
+	}
+
 #ifndef NDEBUG
 	//Out_Debug_String("set_pos LOCK\r\n");
 #endif
@@ -129,7 +136,7 @@ void Mouse::Set_Mouse_Position(const Ccallback<void> &callback, uint16_t x, uint
 #ifndef NDEBUG
 	//Out_Debug_String("set_pos PREWAIT\r\n");
 #endif
-	Call_Priority_VM_Event(
+	vm_event = Call_Priority_VM_Event(
 		High_Pri_Device_Boost,
 		VMD_Owner,
 		PEF_Wait_Not_Crit | PEF_Wait_For_STI | PEF_Always_Sched,
